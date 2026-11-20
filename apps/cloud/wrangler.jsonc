@@ -1,0 +1,69 @@
+// Quillipi's Cloudflare settings: the ones its code needs, which every release carries (release.mjs
+// puts them in each release file), and the ones `wrangler dev` uses here. Nobody's own values go
+// here: a Quillipi keeps its settings inside itself (src/settings.ts), and a copy keeps the rest in
+// its own wrangler.jsonc (deploy/). `npm run deploy:cloud` deploys the release file, as copies do.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  // The Worker's name under `wrangler dev`. Releases leave it out: each Quillipi has its own.
+  "name": "inklog",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-15",
+  // Outgoing requests may reach only the public internet. Sign-in needs this before it fetches an
+  // app's published identity (a Client ID Metadata Document), so that can't be aimed inside.
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "workers_dev": true,
+  // Only the permanent address; no extra address per version.
+  "preview_urls": false,
+  // Logs and errors show in the Cloudflare dashboard.
+  "observability": { "enabled": true },
+  // The app: apps/web's built files, served by Cloudflare as static assets, which are free and
+  // don't run the Worker. Addresses that match no file get the app's page, which reads the address
+  // itself. The Worker's own routes are listed here, so they come to the Worker first; otherwise a
+  // browser opening /authorize or /signin would get the app instead.
+  "assets": {
+    "directory": "../web/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api/*",
+      "/mcp",
+      "/mcp/*",
+      "/authorize",
+      "/callback",
+      "/token",
+      "/register",
+      "/.well-known/*",
+      "/signin",
+      "/signin/*",
+      "/signout",
+      "/setup",
+      "/setup/*",
+      "/status",
+      "/dev/*"
+    ]
+  },
+  // Every other setting (the address, the owner, the GitHub App, the session secret) is kept inside
+  // Quillipi by its first-time setup; a Worker variable or secret of the same name still wins.
+  "vars": {
+    // Which commit is live: each deploy sets it.
+    "COMMIT": "by hand",
+    // The GitHub username of whoever owns this Quillipi: only that account can set it up and use it.
+    // A copy sets it in its own wrangler.jsonc. Under `wrangler dev`, pass --var GITHUB_USER_LOGIN:<yours>.
+    "GITHUB_USER_LOGIN": ""
+  },
+  // Sign-in records (apps, grants, and tokens stored only as hashes), kept by workers-oauth-provider.
+  // No ID: Cloudflare makes the namespace on the first deploy, and later deploys keep it.
+  "kv_namespaces": [{ "binding": "OAUTH_KV" }],
+  // One Durable Object per notebook, each with its own SQLite database, and one library with a
+  // card for every notebook.
+  "durable_objects": {
+    "bindings": [
+      { "name": "NOTEBOOK", "class_name": "NotebookObject" },
+      { "name": "LIBRARY", "class_name": "LibraryObject" }
+    ]
+  },
+  // Cloudflare's record of how the Durable Objects changed. Never edit or remove a step; add new ones.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["NotebookObject"] },
+    { "tag": "v2", "new_sqlite_classes": ["LibraryObject"] }
+  ]
+}

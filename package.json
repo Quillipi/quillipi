@@ -1,0 +1,38 @@
+{
+  "name": "quillipi-monorepo",
+  "private": true,
+  "version": "0.4.2",
+  "description": "Documents with history, written by people and AI agents together.",
+  "homepage": "https://quillipi.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quillipi/quillipi.git"
+  },
+  "bugs": "https://github.com/quillipi/quillipi/issues",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "build": "tsc -b packages/core packages/engine apps/inklog && npm run build -w @inklog/web && npm run typecheck -w @inklog/cloud",
+    "dev:server": "tsc -b packages/core packages/engine apps/inklog --watch",
+    "dev:web": "npm run dev -w @inklog/web",
+    "test": "vitest run",
+    "typecheck": "tsc -b packages/core packages/engine apps/inklog && npm run typecheck -w @inklog/web && npm run typecheck -w @inklog/cloud",
+    "quillipi": "node apps/inklog/dist/cli.js",
+    "release": "node apps/cloud/scripts/release.mjs",
+    "deploy:cloud": "node apps/cloud/scripts/deploy.mjs",
+    "publish:release": "node apps/cloud/scripts/publish.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.4",
+    "vite": "8.3.4"
+  }
+}

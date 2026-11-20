@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Quillipi",
+  "short_name": "Quillipi",
+  "description": "Documents with history, written by people and AI agents together.",
+  "lang": "en",
+  "categories": ["productivity"],
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#edecf2",
+  "theme_color": "#edecf2",
+  "launch_handler": { "client_mode": ["focus-existing", "auto"] },
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

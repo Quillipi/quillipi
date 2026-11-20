@@ -1,0 +1,45 @@
+# On every push to main: tests everything, builds the release file and checks it is the one
+# deploy/quillipi-release.json pins, deploys this repository's Quillipi from it exactly as copies
+# deploy, checks the new Quillipi answers with its notebooks open, and only then publishes the
+# release on GitHub for copies, the first time its version is deployed. A failing step stops the
+# rest, so what is live, and what copies get, has always passed the tests.
+name: Test, deploy and release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time, in the order of the pushes.
+concurrency:
+  group: cloud-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: write # to publish releases
+
+jobs:
+  test-deploy-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0, pinned to its commit
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0, pinned to its commit
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - name: Build the release and check it is the pinned one
+        run: npm run release
+      - name: Deploy this Quillipi from the release
+        run: npm run deploy:cloud
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
+      - name: Publish the release for copies
+        run: npm run publish:release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

@@ -1,0 +1,28 @@
+{
+  "name": "quillipi",
+  "private": true,
+  "description": "A Quillipi of your own on Cloudflare: notebooks with history, written by you and your AI agents together.",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "deploy": "node build.mjs && wrangler deploy --config dist/wrangler.json",
+    "update": "node update.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.165.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "OAUTH_KV": {
+        "description": "Where Quillipi keeps sign-in records: the apps that may connect to it, and their tokens, stored only as hashes."
+      },
+      "GITHUB_USER_LOGIN": {
+        "description": "**Your GitHub username**, such as `octocat`. Only this GitHub account can finish setting up this Quillipi and use it."
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+# Security headers for the app's files when Cloudflare serves them as static assets (the Worker
+# sets its own on what it answers). The app runs only its own scripts, talks only to its own
+# address, and can't be shown inside another site. Images may come from the web, because a
+# section can show an image by its web address. No address is sent to other sites; within Quillipi
+# it is, because only then does a browser send a form's Origin, which Sign out checks (with
+# no-referrer, Chrome sends "Origin: null").
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: same-origin
+
+# The service worker and the manifest are checked on every visit, so a deploy reaches the app at
+# once. The app's built files have their content in their names, so a copy never goes stale.
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

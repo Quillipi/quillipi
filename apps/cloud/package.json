@@ -1,0 +1,22 @@
+{
+  "name": "@inklog/cloud",
+  "version": "0.4.2",
+  "description": "Quillipi in the cloud: the always-on home of the notebooks, on Cloudflare.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "1.2.4",
+    "@inklog/core": "0.4.2",
+    "@inklog/engine": "0.4.2",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261021.1",
+    "wrangler": "4.165.0"
+  }
+}

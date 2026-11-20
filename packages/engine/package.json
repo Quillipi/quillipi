@@ -1,0 +1,21 @@
+{
+  "name": "@inklog/engine",
+  "version": "0.4.2",
+  "description": "Quillipi's engine, agent tools and stores. Runs anywhere JavaScript runs: Node, a browser or a Cloudflare Worker.",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@inklog/core": "0.4.2",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7"
+  }
+}

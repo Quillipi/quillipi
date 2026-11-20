@@ -1,0 +1,3 @@
+# Unix line endings on every computer, as the code and Quillipi's own files are written. Without
+# this, Git on Windows turns them into CRLF in the working files and warns on every commit.
+* text=auto eol=lf

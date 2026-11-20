@@ -1,0 +1,16 @@
+{
+  "name": "@inklog/core",
+  "version": "0.4.2",
+  "description": "Quillipi's block model, file format, diffs and AI text. Pure TypeScript, no I/O.",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ]
+}

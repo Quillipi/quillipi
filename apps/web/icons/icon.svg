@@ -1,0 +1,26 @@
+<!--
+  Quillipi's app icon as a tile, for computers and anywhere the icon is shown as it is: the same
+  drop and ground as icon-full.svg, with rounded corners. Made into public/icons/ with:
+    rsvg-convert -w 512 -h 512 icon.svg -o ../public/icons/icon-512.png
+    rsvg-convert -w 192 -h 192 icon.svg -o ../public/icons/icon-192.png
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ebe6fd"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="8" y1="4" x2="24" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a48fff"/>
+      <stop offset="1" stop-color="#5b34e6"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="1.1" stdDeviation="1.1" flood-color="#5b34e6" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#ground)"/>
+  <g transform="translate(256 262) scale(10) translate(-16 -15.75)">
+    <path d="M16 3c5 7 9 11.5 9 16.5a9 9 0 0 1-18 0C7 14.5 11 10 16 3z" fill="url(#ink)" filter="url(#shadow)"/>
+    <path d="M12.2 17.5c0-2 1.2-3.9 2.6-5.9" stroke="#fff" stroke-opacity=".55" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  </g>
+</svg>

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+.DS_Store
+*.log
+.wrangler/
+# Release files, built by `npm run release`.
+/release/
+# Secrets for `wrangler dev`, and private keys, never go to Git.
+.dev.vars*
+*.pem

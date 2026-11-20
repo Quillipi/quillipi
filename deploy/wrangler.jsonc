@@ -1,0 +1,17 @@
+// This Quillipi's own Cloudflare settings. Quillipi's release brings everything else (its Durable
+// Objects and their migrations, the app, the compatibility date), and build.mjs joins the two into
+// dist/wrangler.json. Updates never change this file. A copy can set name, account_id, vars,
+// kv_namespaces (their IDs), routes and workers_dev; anything else is refused.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The name of this Quillipi's Worker. Its address is https://<name>.<your subdomain>.workers.dev.
+  "name": "quillipi",
+  // Settings Quillipi's setup doesn't keep for you. A blank one is left out.
+  "vars": {
+    // Your GitHub username. Only this GitHub account can finish setting up this Quillipi and use it.
+    "GITHUB_USER_LOGIN": ""
+  },
+  // Where Quillipi keeps sign-in records. The Deploy to Cloudflare button makes the namespace and
+  // writes its ID here; without an ID, Wrangler keeps the one this Worker already has.
+  "kv_namespaces": [{ "binding": "OAUTH_KV" }]
+}

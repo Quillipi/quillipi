@@ -1,0 +1,32 @@
+# Quillipi's updates. Once a week this looks for a newer Quillipi release; when there is one, it opens
+# an issue here saying what is new. To update, run this workflow (Actions, Update Quillipi, Run
+# workflow): it commits the new release here, and Cloudflare deploys that commit. To undo an
+# update, revert its commit. The work is in update.mjs, which each update brings up to date; this
+# file stays the same, as a workflow can't change workflow files.
+name: Update Quillipi
+
+on:
+  schedule:
+    - cron: '23 4 * * 1' # Mondays at 04:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write # to commit an update
+  issues: write # to say when one is ready
+
+concurrency:
+  group: quillipi-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0, pinned to its commit
+      - run: node update.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # notice: open an issue when a new Quillipi is out, and update when you run this workflow.
+          # automatic: update as soon as the weekly check finds one.
+          QUILLIPI_UPDATES: notice

@@ -1,0 +1,7 @@
+node_modules/
+# What build.mjs makes from the release, and Wrangler's own state.
+dist/
+.wrangler/
+# Secrets never go to Git.
+.dev.vars*
+*.pem

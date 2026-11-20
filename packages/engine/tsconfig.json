@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    // Web platform types only, and no Node types: the compiler itself refuses Node-only code here.
+    "lib": ["ES2023", "DOM"],
+    "types": []
+  },
+  "include": ["src"],
+  "references": [{ "path": "../core" }]
+}
