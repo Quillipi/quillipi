@@ -7,7 +7,7 @@
  * waits for your review. Uncommitted work is listed, as it always was, but it is yours, so it
  * doesn't ring the bell.
  */
-import { type NotebookCard, type RepoInfo, formatAgo } from '@inklog/core';
+import { type NotebookCard, type RepoInfo, type Updates, formatAgo } from '@inklog/core';
 import type { Route } from './router';
 
 export interface NewsItem {
@@ -131,17 +131,25 @@ export function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
-/** Home's Get started card: which of its two steps are done, and whether it shows at all. */
+/**
+ * Home's Get started card: which of its steps are done, and whether it shows at all. A copy made
+ * with the Deploy to Cloudflare button has a first step, Turn on updates, until its build finds
+ * the update workflow; a Quillipi with no copy's repository has only the other two.
+ */
 export interface GetStarted {
+  /** Missing where there is no Turn on updates step. */
+  updates?: boolean;
   claude: boolean;
   /** A notebook that isn't archived. */
   notebook: boolean;
   done: number;
+  total: number;
   show: boolean;
 }
 
-export function getStarted(cards: NotebookCard[], claudeConnected: boolean): GetStarted {
+export function getStarted(cards: NotebookCard[], claudeConnected: boolean, updates?: Updates): GetStarted {
   const notebook = cards.some((card) => !card.archived);
-  const done = Number(claudeConnected) + Number(notebook);
-  return { claude: claudeConnected, notebook, done, show: done < 2 };
+  const steps = [...(updates ? [updates.on] : []), claudeConnected, notebook];
+  const done = steps.filter(Boolean).length;
+  return { ...(updates ? { updates: updates.on } : {}), claude: claudeConnected, notebook, done, total: steps.length, show: done < steps.length };
 }

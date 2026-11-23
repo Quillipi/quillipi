@@ -9,8 +9,8 @@
  * A click on a notebook's folder opens the notebook. New notebook is one press away in three
  * places: the band, the last folder, and the panel.
  *
- * A new Quillipi shows the Get started card first (GetStarted.tsx): connect Claude, then the first
- * notebook, until both are done.
+ * A new Quillipi shows the Get started card first (GetStarted.tsx): in a copy, turn on updates;
+ * then connect Claude and make the first notebook, until every step is done.
  */
 import type { NotebookCard, RecentEdit, SectionMark } from '@inklog/core';
 import { ArrowUpDown, Check, ChevronDown, ChevronRight, Ellipsis, FileText, Plus, Search } from 'lucide-react';
@@ -34,6 +34,7 @@ export function Home() {
   const cards = useShelf((state) => state.cards);
   const loaded = useShelf((state) => state.homeLoaded);
   const claudeConnected = useShelf((state) => state.claudeConnected);
+  const updates = useShelf((state) => state.updates);
   const [error, setError] = useState<Error>();
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export function Home() {
 
   if (error) return <Problem error={error} />;
   const live = cards.filter((card) => !card.archived);
-  const progress = getStarted(cards, claudeConnected);
+  const progress = getStarted(cards, claudeConnected, updates);
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
@@ -62,7 +63,7 @@ export function Home() {
             <p className="text-muted-foreground">Opening…</p>
           ) : (
             <>
-              {progress.show && <GetStarted progress={progress} alone={!live.length} />}
+              {progress.show && <GetStarted progress={progress} updates={updates} alone={!live.length} />}
               {live.length > 0 && (
                 <>
                   <RecentlyEdited cards={live} />

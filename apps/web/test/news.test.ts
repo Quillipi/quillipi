@@ -136,9 +136,17 @@ describe("Home's notebooks", () => {
 
 describe("Home's Get started card", () => {
   it('ticks Claude and a notebook that isn’t archived, and goes once both are done', () => {
-    expect(getStarted([], false)).toEqual({ claude: false, notebook: false, done: 0, show: true });
-    expect(getStarted([card('gym', {}, { archived: true })], true)).toEqual({ claude: true, notebook: false, done: 1, show: true });
-    expect(getStarted([card('gym')], false)).toEqual({ claude: false, notebook: true, done: 1, show: true });
-    expect(getStarted([card('gym'), card('plan', {}, { archived: true })], true)).toEqual({ claude: true, notebook: true, done: 2, show: false });
+    expect(getStarted([], false)).toEqual({ claude: false, notebook: false, done: 0, total: 2, show: true });
+    expect(getStarted([card('gym', {}, { archived: true })], true)).toEqual({ claude: true, notebook: false, done: 1, total: 2, show: true });
+    expect(getStarted([card('gym')], false)).toEqual({ claude: false, notebook: true, done: 1, total: 2, show: true });
+    expect(getStarted([card('gym'), card('plan', {}, { archived: true })], true)).toEqual({ claude: true, notebook: true, done: 2, total: 2, show: false });
+  });
+
+  it("has Turn on updates first in a copy, and comes back for it in a copy that was set up before it existed", () => {
+    const off = { repository: 'Ki-met/quillipi', on: false };
+    expect(getStarted([], false, off)).toEqual({ updates: false, claude: false, notebook: false, done: 0, total: 3, show: true });
+    // Like the copy from the newcomer test: Claude and a notebook done, the workflow never added.
+    expect(getStarted([card('kimet-plan')], true, off)).toEqual({ updates: false, claude: true, notebook: true, done: 2, total: 3, show: true });
+    expect(getStarted([card('kimet-plan')], true, { ...off, on: true })).toMatchObject({ updates: true, done: 3, total: 3, show: false });
   });
 });

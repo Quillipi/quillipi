@@ -11,7 +11,9 @@ Open your Quillipi's address, `https://<name>.<your subdomain>.workers.dev` (Clo
 dashboard shows it under Workers & Pages). One page takes you through four steps in about
 3 minutes: a GitHub organization for your notebooks (GitHub makes one for free), Quillipi's GitHub
 App there, installing it, and signing in. Only the GitHub account named in `wrangler.jsonc` as
-`GITHUB_USER_LOGIN` can finish it. Home then shows how to connect Claude.
+`GITHUB_USER_LOGIN` can finish it. Home's Get started then turns on updates and shows how to
+connect Claude. New to all this? [quillipi.app/start](https://quillipi.app/start) shows every
+screen.
 
 ## What's here
 
@@ -19,7 +21,7 @@ App there, installing it, and signing in. Only the GitHub account named in `wran
 | --- | --- | --- |
 | `wrangler.jsonc` | Your Worker's name, your GitHub username, your resources' IDs | You |
 | `quillipi-release.json` | Which Quillipi release runs here, and its SHA-256 fingerprint | Updates |
-| `.github/workflows/update.yml` | The weekly update check | You (a workflow can't change workflow files) |
+| `.github/workflows/update.yml` | The weekly update check, added by you from Home's **Turn on updates** | You (a workflow can't change workflow files) |
 | Everything else | Quillipi's scripts: `build.mjs`, `update.mjs`, `package.json`, `package-lock.json`, `.node-version`, `.gitignore`, this README | Updates, which replace any changes |
 
 ## How it deploys
@@ -31,6 +33,13 @@ pinned one, and joins Quillipi's own settings with yours from `wrangler.jsonc` i
 that passed Quillipi's tests.
 
 ## Updates
+
+**Turn them on first.** Cloudflare's GitHub app can't add workflow files, so a copy made with the
+Deploy to Cloudflare button starts without `.github/workflows/update.yml`. Home's Get started has a
+**Turn on updates** step: its button opens GitHub with that file filled in, and you press
+**Commit changes**. Cloudflare then deploys again, and the step ticks once the build finds the file.
+The build finds this repository from its Git checkout; if Home names the wrong one, set
+`"REPOSITORY": "<owner>/<name>"` under `vars` in `wrangler.jsonc`.
 
 Once a week, the workflow **Update Quillipi** looks for a newer release. When there is one, it
 opens an issue, "Quillipi 0.5.0 is ready", saying what is new. To update, open **Actions**,

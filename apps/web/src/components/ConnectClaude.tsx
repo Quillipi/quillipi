@@ -28,7 +28,7 @@ export function ConnectClaude() {
       <Tabs.Content value="claude-ai" className="mt-3.5 outline-none">
         <Steps>
           <Step n={1}>
-            In Claude, open <b>Settings</b>, then <b>Connectors</b>, and choose <b>Add custom connector</b>.
+            In Claude, open <b>Settings</b>, then <b>Plugins</b>, and choose <b>Browse plugins</b>. Press <b>Add</b>, then <b>Add custom connector</b>.
           </Step>
           <Step n={2}>
             Name it <b>Quillipi</b> and paste this address:
@@ -38,7 +38,9 @@ export function ConnectClaude() {
             Press <b>Add</b>, then <b>Connect</b>, and <b>Continue with GitHub</b>.
           </Step>
         </Steps>
-        <Note>The Claude app on your phone uses the same connector, through your Claude account. In a chat, turn Quillipi on from the + menu.</Note>
+        <Note>
+          If your Claude's Settings show <b>Connectors</b> instead, add it there. The Claude app on your phone uses the same connector, through your Claude account. In a chat, turn Quillipi on from the + menu.
+        </Note>
       </Tabs.Content>
 
       <Tabs.Content value="code" className="mt-3.5 outline-none">

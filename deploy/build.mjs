@@ -152,10 +152,92 @@ export function openRelease(bytes, { version }) {
   return release;
 }
 
-/** The commit being deployed, as Cloudflare's builds and GitHub Actions name it; else "by hand". */
-export function commitFrom(env) {
-  const sha = env.WORKERS_CI_COMMIT_SHA || env.GITHUB_SHA;
-  return sha ? sha.slice(0, 7) : 'by hand';
+/** Where a copy keeps its weekly update check. Cloudflare's GitHub app can't add workflow files, so Home asks the owner to. */
+export const UPDATE_WORKFLOW = '.github/workflows/update.yml';
+
+const COMMIT_ID = /^[0-9a-f]{7,40}$/i;
+
+/**
+ * The commit being deployed, as Cloudflare's builds or GitHub Actions name it, else as the copy's
+ * Git checkout says. Only a real commit ID counts: Cloudflare's first build of a new copy gave
+ * WORKERS_CI_COMMIT_SHA as "main". "unknown" in a build service that named none, else "by hand".
+ */
+export function commitFrom(env, head) {
+  const sha = [env.WORKERS_CI_COMMIT_SHA, env.GITHUB_SHA, head].find((value) => COMMIT_ID.test(value ?? ''));
+  if (sha) return sha.slice(0, 7).toLowerCase();
+  return env.WORKERS_CI || env.GITHUB_ACTIONS ? 'unknown' : 'by hand';
+}
+
+/**
+ * What the copy's Git checkout in `dir` says: the commit checked out, and the GitHub repository
+ * its remote "origin" points at. Read from the files, so the build needs no Git program; anything
+ * missing is left out. A clone's remote address can carry a token, so only "owner/name" is kept.
+ */
+export function readGit(dir) {
+  const git = join(dir, '.git');
+  if (!existsSync(join(git, 'HEAD'))) return {};
+  const read = (path) => {
+    try {
+      return readFileSync(join(git, path), 'utf8');
+    } catch {
+      return undefined;
+    }
+  };
+  const found = {};
+  const head = headCommit(read);
+  if (head) found.head = head;
+  const origin = originUrl(read('config') ?? '');
+  const repository = origin && githubRepository(origin);
+  if (repository) found.repository = repository;
+  return found;
+}
+
+function headCommit(read) {
+  const head = read('HEAD')?.trim() ?? '';
+  const ref = /^ref: (refs\/\S+)$/.exec(head)?.[1];
+  if (!ref) return COMMIT_ID.test(head) ? head : undefined;
+  const loose = read(ref)?.trim();
+  if (loose && COMMIT_ID.test(loose)) return loose;
+  // A fresh clone keeps its branches in packed-refs: "<commit> <ref>" per line.
+  for (const line of (read('packed-refs') ?? '').split('\n')) {
+    const [sha, name] = line.trim().split(' ');
+    if (name === ref && COMMIT_ID.test(sha ?? '')) return sha;
+  }
+  return undefined;
+}
+
+/** The address of the remote "origin" in a Git config file. */
+export function originUrl(config) {
+  let inOrigin = false;
+  for (const line of config.split('\n')) {
+    const text = line.trim();
+    if (text.startsWith('[')) inOrigin = /^\[remote\s+"origin"\]$/.test(text);
+    else if (inOrigin) {
+      const url = /^url\s*=\s*(.+)$/.exec(text)?.[1];
+      if (url) return url.trim();
+    }
+  }
+  return undefined;
+}
+
+/** "owner/name" from a GitHub repository's address, over HTTPS (with or without a token) or SSH. */
+export function githubRepository(url) {
+  const match = /^(?:https:\/\/(?:[^@/]+@)?github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([A-Za-z0-9-]+)\/([\w.-]+?)(?:\.git)?\/?$/.exec(url);
+  if (!match || match[2] === '.' || match[2] === '..') return undefined;
+  return `${match[1]}/${match[2]}`;
+}
+
+/**
+ * This copy's GitHub repository, for Home's Turn on updates step: its checkout's origin, else, in
+ * Cloudflare's build without one, the repository the Deploy to Cloudflare button makes, which is
+ * named after the Worker in the GitHub account given as GITHUB_USER_LOGIN. Undefined when unknown,
+ * as for this repository's own Quillipi, which is built from a folder with no Git and needs no step.
+ */
+export function repositoryFrom(git, env, own) {
+  if (git.repository) return git.repository;
+  const login = own.vars?.GITHUB_USER_LOGIN?.trim() ?? '';
+  if (env.WORKERS_CI && /^[A-Za-z0-9-]+$/.test(login) && /^[\w.-]+$/.test(own.name ?? '')) return `${login}/${own.name}`;
+  return undefined;
 }
 
 /**
@@ -163,9 +245,11 @@ export function commitFrom(env) {
  * migrations, compatibility date and flags, assets), and this copy's from wrangler.jsonc: its
  * Worker's name, its variables, the IDs of its resources, its routes. A blank variable is left out,
  * which means Quillipi uses the value kept inside it. A setting a copy can't set is an error, never
- * ignored, so nothing in wrangler.jsonc can quietly do nothing.
+ * ignored, so nothing in wrangler.jsonc can quietly do nothing. The build adds what it found:
+ * COMMIT, REPOSITORY (the copy's GitHub repository, when known) and UPDATE_WORKFLOW ("found" or
+ * "missing"), which Home's Get started reads to show Turn on updates and tick it.
  */
-export function makeConfig(release, own, { commit }) {
+export function makeConfig(release, own, { commit, repository, workflow }) {
   const unknown = Object.keys(own).filter((key) => !OWN_SETTINGS.includes(key));
   if (unknown.length > 0) {
     throw new Error(`wrangler.jsonc sets ${unknown.map((key) => `"${key}"`).join(', ')}, which Quillipi's release sets itself. A copy can set ${OWN_SETTINGS.slice(1).join(', ')}.`);
@@ -175,13 +259,14 @@ export function makeConfig(release, own, { commit }) {
   config.name = own.name;
   for (const key of ['account_id', 'routes', 'route', 'workers_dev']) if (own[key] !== undefined) config[key] = own[key];
 
-  const vars = { ...config.vars };
+  // The copy's repository as found; one named in wrangler.jsonc wins, for a copy that was renamed.
+  const vars = { ...config.vars, ...(repository ? { REPOSITORY: repository } : {}) };
   for (const [name, value] of Object.entries(own.vars ?? {})) {
     if (typeof value !== 'string') throw new Error(`wrangler.jsonc gives the variable ${name} a value that isn't text.`);
     if (value.trim() === '') delete vars[name];
     else vars[name] = value;
   }
-  config.vars = { ...vars, COMMIT: commit };
+  config.vars = { ...vars, COMMIT: commit, ...(workflow === undefined ? {} : { UPDATE_WORKFLOW: workflow ? 'found' : 'missing' }) };
 
   const ids = new Map();
   for (const namespace of own.kv_namespaces ?? []) {
@@ -228,7 +313,12 @@ async function main() {
   const out = join(here, 'dist');
   const bytes = await fetchRelease(pin, { dir: out, file: values.release && resolve(values.release) });
   const release = openRelease(bytes, pin);
-  const config = makeConfig(release, own, { commit: commitFrom(process.env) });
+  const git = readGit(here);
+  const config = makeConfig(release, own, {
+    commit: commitFrom(process.env, git.head),
+    repository: repositoryFrom(git, process.env, own),
+    workflow: existsSync(join(here, UPDATE_WORKFLOW)),
+  });
   unpack(release, config, out);
   console.log(`Quillipi ${release.version} is ready to deploy as the Worker "${config.name}", with ${join('dist', 'wrangler.json')}.`);
 }

@@ -6,11 +6,15 @@ import {
   commitFrom,
   fetchRelease,
   fileBytes,
+  githubRepository,
   makeConfig,
   openRelease,
+  originUrl,
   parseJsonc,
+  readGit,
   readPin,
   releaseUrl,
+  repositoryFrom,
   safePath,
   sha256,
   unpack,
@@ -167,6 +171,76 @@ describe('the config a copy deploys', () => {
     expect(commitFrom({ WORKERS_CI_COMMIT_SHA: 'abcdef0123', GITHUB_SHA: 'ffffffff' })).toBe('abcdef0');
     expect(commitFrom({ GITHUB_SHA: '0123456789' })).toBe('0123456');
     expect(commitFrom({})).toBe('by hand');
+  });
+
+  it('takes only a real commit ID, then the checkout’s, never a branch name', () => {
+    // Cloudflare's first build of a new copy gave the branch (S4.5, finding 5).
+    expect(commitFrom({ WORKERS_CI: '1', WORKERS_CI_COMMIT_SHA: 'main' }, 'EABCD47FFFF')).toBe('eabcd47');
+    expect(commitFrom({ WORKERS_CI: '1', WORKERS_CI_COMMIT_SHA: 'main' })).toBe('unknown');
+    expect(commitFrom({ GITHUB_ACTIONS: 'true', GITHUB_SHA: '' })).toBe('unknown');
+    expect(commitFrom({ WORKERS_CI_COMMIT_SHA: 'abc12' }, 'not-a-commit')).toBe('by hand');
+  });
+
+  it('adds the copy’s repository and whether its update workflow is there; a repository in wrangler.jsonc wins', () => {
+    const own = { name: 'quillipi', vars: { GITHUB_USER_LOGIN: 'octocat' } };
+    expect(makeConfig(ofRelease, own, { commit: 'abc1234', repository: 'octocat/quillipi', workflow: false }).vars).toEqual({
+      REPOSITORY: 'octocat/quillipi',
+      GITHUB_USER_LOGIN: 'octocat',
+      COMMIT: 'abc1234',
+      UPDATE_WORKFLOW: 'missing',
+    });
+    const renamed = { name: 'quillipi', vars: { REPOSITORY: 'octo-org/notes' } };
+    expect(makeConfig(ofRelease, renamed, { commit: 'abc1234', repository: 'octocat/quillipi', workflow: true }).vars).toEqual({
+      REPOSITORY: 'octo-org/notes',
+      COMMIT: 'abc1234',
+      UPDATE_WORKFLOW: 'found',
+    });
+    // Nothing found, nothing added.
+    expect(makeConfig(ofRelease, { name: 'quillipi' }, { commit: 'by hand' }).vars).toEqual({ COMMIT: 'by hand' });
+  });
+});
+
+describe("what the build finds in the copy's checkout", () => {
+  const SHA = '3862473aaaabbbbccccddddeeeeffff000011112';
+
+  it('reads GitHub repositories from every kind of address, keeping no token', () => {
+    expect(githubRepository('https://github.com/Ki-met/quillipi')).toBe('Ki-met/quillipi');
+    expect(githubRepository('https://github.com/Ki-met/quillipi.git')).toBe('Ki-met/quillipi');
+    expect(githubRepository('https://x-access-token:ghs_secret@github.com/octocat/my.notes.git')).toBe('octocat/my.notes');
+    expect(githubRepository('git@github.com:octocat/quillipi.git')).toBe('octocat/quillipi');
+    expect(githubRepository('ssh://git@github.com/octocat/quillipi')).toBe('octocat/quillipi');
+    for (const other of ['https://gitlab.com/octocat/quillipi', 'https://github.com/octocat', 'https://github.com/octocat/..', 'https://github.com.evil.example/octocat/q', 'https://github.com/a/b/c']) {
+      expect(githubRepository(other), other).toBeUndefined();
+    }
+  });
+
+  it('finds the remote "origin" in a Git config', () => {
+    const config = '[core]\n\tbare = false\n[remote "upstream"]\n\turl = https://github.com/quillipi/quillipi\n[remote "origin"]\n\turl = https://github.com/Ki-met/quillipi\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n';
+    expect(originUrl(config)).toBe('https://github.com/Ki-met/quillipi');
+    expect(originUrl('[core]\n\turl = https://github.com/a/b\n')).toBeUndefined();
+  });
+
+  it('reads the checked-out commit from a branch, packed refs or a detached HEAD', () => {
+    const copy = folder();
+    expect(readGit(copy)).toEqual({});
+    mkdirSync(join(copy, '.git', 'refs', 'heads'), { recursive: true });
+    writeFileSync(join(copy, '.git', 'config'), '[remote "origin"]\n\turl = https://x-access-token:secret@github.com/Ki-met/quillipi\n');
+    writeFileSync(join(copy, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+    writeFileSync(join(copy, '.git', 'packed-refs'), `# pack-refs with: peeled fully-peeled sorted\n${SHA} refs/heads/main\n`);
+    expect(readGit(copy)).toEqual({ head: SHA, repository: 'Ki-met/quillipi' });
+    writeFileSync(join(copy, '.git', 'refs', 'heads', 'main'), `${SHA.replace('3862473', 'd3f6d84')}\n`);
+    expect(readGit(copy).head).toMatch(/^d3f6d84/);
+    writeFileSync(join(copy, '.git', 'HEAD'), `${SHA}\n`);
+    expect(readGit(copy).head).toBe(SHA);
+  });
+
+  it('knows the repository from the checkout, else as the Deploy button names it in Cloudflare’s build', () => {
+    const own = { name: 'quillipi', vars: { GITHUB_USER_LOGIN: 'Ki-met' } };
+    expect(repositoryFrom({ repository: 'Ki-met/notes' }, { WORKERS_CI: '1' }, own)).toBe('Ki-met/notes');
+    expect(repositoryFrom({}, { WORKERS_CI: '1' }, own)).toBe('Ki-met/quillipi');
+    // Not in Cloudflare's build (this repository's own Quillipi, or by hand with no Git): unknown.
+    expect(repositoryFrom({}, {}, own)).toBeUndefined();
+    expect(repositoryFrom({}, { WORKERS_CI: '1' }, { name: 'quillipi', vars: { GITHUB_USER_LOGIN: '' } })).toBeUndefined();
   });
 });
 

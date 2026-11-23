@@ -131,8 +131,9 @@ describe("deploying this repository's own Quillipi", () => {
       expect(parseJsonc(readFileSync(join(dir, 'wrangler.jsonc'), 'utf8'))).toEqual(own);
       for (const name of [...COPY_FILES, PIN_FILE]) expect(readFileSync(join(dir, name), 'utf8'), name).toBe(read(`deploy/${name}`));
       // So the release deploys to this Worker, keeping the namespace it has and the settings kept inside it.
-      const config = makeConfig({ config: { main: 'worker/index.js', kv_namespaces: [{ binding: 'OAUTH_KV' }] } }, own, { commit: 'abc1234' });
-      expect(config).toEqual({ main: 'worker/index.js', name: 'inklog', vars: { COMMIT: 'abc1234' }, kv_namespaces: [{ binding: 'OAUTH_KV' }] });
+      // Its folder has no Git and no update workflow, so no repository is named: Home shows no Turn on updates.
+      const config = makeConfig({ config: { main: 'worker/index.js', kv_namespaces: [{ binding: 'OAUTH_KV' }] } }, own, { commit: 'abc1234', workflow: existsSync(join(dir, '.github')) });
+      expect(config).toEqual({ main: 'worker/index.js', name: 'inklog', vars: { COMMIT: 'abc1234', UPDATE_WORKFLOW: 'missing' }, kv_namespaces: [{ binding: 'OAUTH_KV' }] });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

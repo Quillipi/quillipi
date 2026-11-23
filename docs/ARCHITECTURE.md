@@ -708,14 +708,28 @@ these pages, and the app's, send `Referrer-Policy: same-origin`: with `no-referr
 `GITHUB_APP_ID`), the page says so instead of starting, since the Worker's value would win and mix
 two Apps. Start again throws a setup away.
 
-**After the setup**, Home shows the Get started card (`apps/web/src/pages/GetStarted.tsx`): Connect
-Claude (`components/ConnectClaude.tsx`, also on the Agents page: tabs for claude.ai and the phone,
-Claude Code and Claude Desktop, with the address to copy), then the first notebook. Each ticks
-itself: `GET /api/home` says `claudeConnected`, which Claude's sign-in notes in the library the
-first time (`noteClaudeConnected`, also sent live to Home as `{ type: 'claude' }`); a Quillipi
-whose Claude connected before the note existed is found once by its grants (`listUserGrants`),
-then noted, so Workers KV's daily list requests are spent only until Claude connects. The card
-goes once both are done (`getStarted` in `news.ts`).
+**After the setup**, Home shows the Get started card (`apps/web/src/pages/GetStarted.tsx`): in a
+copy, Turn on updates; then Connect Claude (`components/ConnectClaude.tsx`, also on the Agents
+page: tabs for claude.ai and the phone, Claude Code and Claude Desktop, with the address to copy),
+then the first notebook. Each ticks itself, and the card goes once all are done (`getStarted` in
+`news.ts`):
+
+- **Turn on updates** shows only where the build named the copy's repository (`REPOSITORY`, below).
+  Cloudflare's GitHub app can't add workflow files, so a copy made with the button has no
+  `.github/workflows/update.yml` (the newcomer test, S4.5). The step's button opens GitHub's
+  new-file page in that repository with the file's name and text filled in (`?filename=` and
+  `&value=`; the text is `deploy/.github/workflows/update.yml`, built into the app), so the owner
+  presses Commit. That push makes Cloudflare build the copy again, the build finds the file
+  (`UPDATE_WORKFLOW: "found"`), and the step ticks: after the button is pressed, the card asks
+  `GET /api/updates` every 10 seconds for 15 minutes (not `GET /api/home`, which counts as a visit).
+  If GitHub doesn't find the page (a renamed repository), the step says how to add the file by
+  hand, with its name and text to copy.
+- **Connect Claude**: `GET /api/home` says `claudeConnected`, which Claude's sign-in notes in the
+  library the first time (`noteClaudeConnected`, also sent live to Home as `{ type: 'claude' }`); a
+  Quillipi whose Claude connected before the note existed is found once by its grants
+  (`listUserGrants`), then noted, so Workers KV's daily list requests are spent only until Claude
+  connects.
+- **The first notebook**: any card that isn't archived.
 
 ## Releases, copies and updates
 
@@ -744,8 +758,9 @@ runs.
   `deploy/wrangler.jsonc` as it is but for the Worker's name, and runs that copy's `build.mjs
   --release <file>`. So the Worker `inklog` (`OWN_WORKER`, named before the product was renamed;
   its notebooks, sign-ins and address belong to that name, while a new copy's Worker is
-  `quillipi`), no variable but `COMMIT`, the KV namespace it already has, and its settings kept
-  inside it. It waits for `/status` at the addresses Wrangler reports (its output file,
+  `quillipi`), no variables but `COMMIT` and `UPDATE_WORKFLOW` (no `REPOSITORY`, as its folder has
+  no Git, so its Home has no Turn on updates), the KV namespace it already has, and its settings
+  kept inside it. It waits for `/status` at the addresses Wrangler reports (its output file,
   `WRANGLER_OUTPUT_FILE_PATH`) to show the version with `"notebooks": "ok"`. Only then
   `npm run publish:release` (`scripts/publish.mjs`) publishes the file as the GitHub release
   `v<version>`, the first time that version is deployed, with its notes from `CHANGELOG.md`: a
@@ -761,7 +776,14 @@ runs.
   settings joined with the copy's (`makeConfig`): its Worker's name, its variables (a blank one is
   left out, so Quillipi uses the value kept inside it), its KV namespace's ID, routes and
   `workers_dev`. Anything else in `wrangler.jsonc` is refused, never ignored. Wrangler uploads
-  `dist/` as it is.
+  `dist/` as it is. The build adds three variables of what it found: `COMMIT`, the commit being
+  deployed (`commitFrom`: `WORKERS_CI_COMMIT_SHA` or `GITHUB_SHA` only when it is a real commit ID,
+  since Cloudflare's first build of a new copy gave `main`; else the checkout's `HEAD`, read from
+  `.git` without a Git program; else `unknown` in a build service and `by hand` elsewhere);
+  `REPOSITORY`, the copy's GitHub repository (`repositoryFrom`: the checkout's remote `origin`, only
+  `owner/name` kept, as a clone's address can hold a token; else, in Cloudflare's build,
+  `<GITHUB_USER_LOGIN>/<Worker name>`, which is how the button names it; a `REPOSITORY` in
+  `wrangler.jsonc` wins); and `UPDATE_WORKFLOW`, `found` or `missing`.
 - **The deploy form** asks for what `deploy/wrangler.jsonc` leaves open: the Worker's name, the
   KV namespace (the button makes it and writes its ID into the copy) and `GITHUB_USER_LOGIN`, with
   the words in `package.json`'s `cloudflare.bindings`. Workers Builds installs Wrangler from the
@@ -780,10 +802,11 @@ runs.
   `npm run update -- apply` do the same by hand.
 - **New Cloudflare resources ride with a release.** A binding the release's settings name without
   an ID is made by Wrangler on the copy's next deploy (its automatic provisioning) and kept after.
-- **What only the public repository can check**: the button itself, including whether it copies
-  `.github/workflows/update.yml` (GitHub refuses workflow files from an app without the workflows
-  permission), whether the form's values land in the copy's `wrangler.jsonc`, and what the new
-  repository is called unless the newcomer names it.
+- **What the newcomer test found** (S4.5, 2026-11-22): the button names the repository after the
+  project (`quillipi`, private), the form's `GITHUB_USER_LOGIN` and the KV namespace's ID land in
+  the copy's `wrangler.jsonc`, and `.github/workflows/update.yml` is not copied (most likely GitHub
+  refuses workflow files from an app without the workflows permission), which is why Home has
+  Turn on updates.
 
 ### Storage versions
 

@@ -3,7 +3,7 @@
  * what is shown; it starts afresh whenever another notebook opens. `useShelf` is everything around
  * the notebooks: who is signed in and, in the cloud, the library's cards, kept live.
  */
-import type { HomeData, Me, NotebookCard, RepoInfo } from '@inklog/core';
+import type { HomeData, Me, NotebookCard, RepoInfo, Updates } from '@inklog/core';
 import { create } from 'zustand';
 import { api } from './api';
 import type { SaveState } from './editor/sync';
@@ -194,6 +194,8 @@ interface ShelfState {
   default?: string;
   /** Whether Claude has connected at least once: Home's Get started card asks until it has. */
   claudeConnected: boolean;
+  /** A copy's update check, for Get started's Turn on updates; missing where there is no step. */
+  updates?: Updates;
   /** The New notebook dialog, opened from the rail, Home, the switcher and the New tile. */
   creating: boolean;
   setHome(home: HomeData): void;
@@ -201,6 +203,7 @@ interface ShelfState {
   putCard(card: NotebookCard): void;
   removeCard(id: string): void;
   setClaudeConnected(): void;
+  setUpdates(updates: Updates | undefined): void;
   setCreating(creating: boolean): void;
 }
 
@@ -210,11 +213,12 @@ export const useShelf = create<ShelfState>()((set) => ({
   homeLoaded: false,
   claudeConnected: false,
   creating: false,
-  setHome: ({ me, cards, lastVisit, default: fallback, claudeConnected }) => set({ me, cards: sortCards(cards), loaded: true, homeLoaded: true, lastVisit, default: fallback, claudeConnected }),
+  setHome: ({ me, cards, lastVisit, default: fallback, claudeConnected, updates }) => set({ me, cards: sortCards(cards), loaded: true, homeLoaded: true, lastVisit, default: fallback, claudeConnected, updates }),
   setCards: (cards) => set({ cards: sortCards(cards), loaded: true }),
   putCard: (card) => set((state) => ({ cards: sortCards([card, ...state.cards.filter((other) => other.id !== card.id)]) })),
   removeCard: (id) => set((state) => ({ cards: state.cards.filter((card) => card.id !== id) })),
   setClaudeConnected: () => set({ claudeConnected: true }),
+  setUpdates: (updates) => set({ updates }),
   setCreating: (creating) => set({ creating }),
 }));
 

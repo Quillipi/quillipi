@@ -357,6 +357,21 @@ describe("the app's calls", () => {
     expect(a.cloud.library.card('gym-rollup')?.summary).toMatchObject({ title: 'Gym rollup', sections: 1, commits: 1 });
   });
 
+  it("say whether a copy's updates are on, as its build found them, and only for a repository named plainly", async () => {
+    const home = async (env: Partial<Env>) => {
+      const browser = new Browser(app(env));
+      await browser.signIn();
+      return { home: (await (await browser.open('/api/home')).json()) as { updates?: unknown }, alone: await (await browser.open('/api/updates')).json() };
+    };
+    // This repository's own Quillipi: no copy's repository, so no Turn on updates.
+    expect(await home({})).toEqual({ home: expect.not.objectContaining({ updates: expect.anything() }), alone: {} });
+    const missing = await home({ REPOSITORY: 'Ki-met/quillipi', UPDATE_WORKFLOW: 'missing' });
+    expect(missing.home.updates).toEqual({ repository: 'Ki-met/quillipi', on: false });
+    expect(missing.alone).toEqual({ updates: { repository: 'Ki-met/quillipi', on: false } });
+    expect((await home({ REPOSITORY: 'Ki-met/quillipi', UPDATE_WORKFLOW: 'found' })).alone).toEqual({ updates: { repository: 'Ki-met/quillipi', on: true } });
+    for (const odd of ['Ki-met', 'Ki-met/quillipi?x=1', 'a/b/c', 'Ki-met/..', '"><script>']) expect((await home({ REPOSITORY: odd })).alone, odd).toEqual({});
+  });
+
   it('archive a notebook, choose the default, and list the notebooks', async () => {
     const { browser } = await signedIn();
     await browser.post('/api/notebooks', { title: 'Gym rollup' });

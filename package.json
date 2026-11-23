@@ -1,7 +1,7 @@
 {
   "name": "quillipi-monorepo",
   "private": true,
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Documents with history, written by people and AI agents together.",
   "homepage": "https://quillipi.app",
   "repository": {

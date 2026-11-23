@@ -21,6 +21,9 @@ free plan.
 
 ## Your own Quillipi, in about 5 minutes
 
+**New to Cloudflare or GitHub?** Follow the [setup guide](https://quillipi.app/start): it shows
+every screen, makes the free accounts with you, and ticks each step off. If you have both accounts:
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/quillipi/quillipi/tree/main/deploy)
 
 1. Press **Deploy to Cloudflare** and sign in to Cloudflare and GitHub. Choose a name (it becomes
@@ -31,7 +34,9 @@ free plan.
    your notebooks (GitHub makes one for free), Quillipi's GitHub App there (GitHub hands Quillipi
    its keys itself), installing it, and signing in. Only the GitHub account you entered can
    finish it.
-3. Home shows how to connect Claude, then make your first notebook.
+3. Home's Get started turns on updates (one button opens GitHub with the update check filled in,
+   and you press Commit; Cloudflare can't add that file for you), then shows how to connect
+   Claude, then make your first notebook.
 
 Each notebook gets a private repo in that organization, with the same commit IDs as Quillipi, so
 its whole history is on GitHub too. Your copy runs Quillipi's tested releases: once a week it
@@ -44,10 +49,11 @@ rest.
 Claude connects once, at your Quillipi's address followed by `/mcp`, and signs in with GitHub;
 only the GitHub account that owns your Quillipi is let in.
 
-- **claude.ai and the Claude apps:** in Claude, open **Settings → Connectors → Add custom
-  connector**, name it Quillipi and paste `https://<your address>/mcp`, then **Connect** and
-  **Continue with GitHub**. The phone app and Claude Desktop use the same connector, through your
-  Claude account.
+- **claude.ai and the Claude apps:** in Claude, open **Settings → Plugins → Browse plugins**, press
+  **Add**, then **Add custom connector** (or **Settings → Connectors → Add custom connector**, where
+  Claude still shows Connectors), name it Quillipi and paste `https://<your address>/mcp`, then
+  **Add**, **Connect** and **Continue with GitHub**. The phone app and Claude Desktop use the same
+  connector, through your Claude account.
 - **Claude Code:**
 
   ```sh

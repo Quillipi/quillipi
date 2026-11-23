@@ -12,6 +12,7 @@ import type {
   RepoInfo,
   SectionData,
   ServerMessage,
+  Updates,
 } from '@inklog/core';
 
 /** The notebook whose calls go out now; the app sets it when an address in a notebook opens. */
@@ -75,6 +76,8 @@ export async function whichHost(): Promise<Host> {
 export const api = {
   // The cloud's library and the app around the notebooks
   home: () => request<HomeData>('/api/home'),
+  /** A copy's update check alone, which Get started asks while Cloudflare deploys the owner's commit. */
+  updates: () => request<{ updates?: Updates }>('/api/updates'),
   notebooks: () => request<{ notebooks: { id: string; name: string }[] }>('/api/notebooks'),
   createNotebook: (details: { title: string; about?: string; colour?: string }) => post<NotebookCard>('/api/notebooks', details),
   addNotebook: (github: string) => post<NotebookCard>('/api/notebooks', { github }),

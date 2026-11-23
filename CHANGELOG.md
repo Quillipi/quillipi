@@ -4,6 +4,30 @@ What is new in each version of Quillipi, called InkLog until 0.4.0. Each version
 release notes on GitHub, and a Quillipi made with the Deploy to Cloudflare button shows them in
 the issue that says it is ready.
 
+## 0.4.3 (2026-11-23)
+
+Fixes from the first newcomer test, which went from no accounts to a first notebook in 23 minutes.
+
+- **Turn on updates.** A copy made with the Deploy to Cloudflare button had no update check:
+  Cloudflare's GitHub app can't add workflow files, so `.github/workflows/update.yml` never reached
+  the new repository, and its owner was never told of a new Quillipi. Home's Get started now starts
+  with **Turn on updates**: one button opens GitHub with the file filled in, you press **Commit
+  changes**, and once Cloudflare has deployed that commit the step ticks itself. If GitHub can't
+  find the page, the step shows the file's name and text to add by hand. **A copy made before
+  0.4.3 doesn't hear of this release**: add
+  [`update.yml`](https://github.com/quillipi/quillipi/blob/main/deploy/.github/workflows/update.yml)
+  to your copy as `.github/workflows/update.yml`, then run **Actions, Update Quillipi, Run
+  workflow**.
+- **`/status` names the real commit.** Cloudflare's first build of a new copy gave the branch,
+  `main`, where a commit ID belongs, and `/status` showed `"commit": "main"`. Only a real commit ID
+  counts now; otherwise the build reads the checkout's own, or says `unknown`.
+- **Connect Claude follows claude.ai's new menu**: Settings, Plugins, Browse plugins, Add, Add
+  custom connector (or Settings, Connectors, where Claude still shows that).
+- **The README points newcomers to the [setup guide](https://quillipi.app/start)**, which shows
+  every screen, accounts included.
+- A copy's build now tells Quillipi its GitHub repository (`REPOSITORY`, from the checkout, or set
+  in `wrangler.jsonc`) and whether its update workflow is there (`UPDATE_WORKFLOW`).
+
 ## 0.4.2 (2026-11-20)
 
 - **Quillipi is source-available under the PolyForm Shield License 1.0.0.** Its code was under

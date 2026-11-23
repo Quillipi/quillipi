@@ -2,7 +2,8 @@
  * The app's calls under /api, for a browser signed in with its session cookie (session.ts):
  *
  * - Home and the library: GET /api/home (everything Home draws, in one request, with whether
- *   Claude has connected yet), POST
+ *   Claude has connected yet and whether a copy's updates are on), GET /api/updates (only the
+ *   latter, which Get started asks while it waits for Cloudflare to deploy the owner's commit), POST
  *   /api/notebooks (New notebook), archiving, the default notebook, and /api/library/ws, Home's
  *   live connection to the library.
  * - Agents: the apps connected to Claude's door, disconnecting one, and the owner's AI instructions
@@ -15,7 +16,7 @@
  * Calls that change something, and live connections, must come from Quillipi's own address: the
  * cookie alone would let another site's form or script act for the owner.
  */
-import { type AgentConnection, type HomeData, type Me, estimateTokens } from '@inklog/core';
+import { type AgentConnection, type HomeData, type Me, type Updates, estimateTokens } from '@inklog/core';
 import { library } from './door.js';
 import type { Env, Served } from './env.js';
 import { type Session, readSession } from './session.js';
@@ -63,7 +64,13 @@ async function route(request: Request, url: URL, env: Env, { user, login }: Sess
       const shelf = library(env);
       // Opening Home is a visit; its answer says when the one before was, for "since your last visit".
       const [cards, lastVisit, directory, claudeConnected] = await Promise.all([shelf.cards(), shelf.visit(login), shelf.directory(), connected(env, user)]);
-      return json({ me, cards, ...(lastVisit ? { lastVisit } : {}), ...(directory.default ? { default: directory.default } : {}), claudeConnected } satisfies HomeData);
+      const turnOn = updates(env);
+      return json({ me, cards, ...(lastVisit ? { lastVisit } : {}), ...(directory.default ? { default: directory.default } : {}), claudeConnected, ...(turnOn ? { updates: turnOn } : {}) } satisfies HomeData);
+    }
+    // Not a visit, so asking it again and again leaves "since your last visit" alone.
+    case 'GET /api/updates': {
+      const turnOn = updates(env);
+      return json(turnOn ? { updates: turnOn } : {});
     }
     case 'GET /api/notebooks': {
       const cards = await library(env).cards();
@@ -126,6 +133,17 @@ async function notebookCall(request: Request, path: string, env: Env): Promise<R
   }
   if (!(await library(env).card(id))) return json({ error: `No notebook "${id}".` }, 404);
   return env.NOTEBOOK.get(env.NOTEBOOK.idFromName(id)).fetch(request);
+}
+
+/**
+ * A copy's update check, as its build found it (deploy/build.mjs): only for a repository named
+ * plainly, since the app puts it in a link to GitHub. The build runs again after every push, so
+ * once the owner commits the workflow, the next deploy says it is on.
+ */
+export function updates(env: Env): Updates | undefined {
+  const repository = env.REPOSITORY?.trim() ?? '';
+  if (!/^[A-Za-z0-9-]+\/[\w.-]+$/.test(repository) || /\/\.{1,2}$/.test(repository)) return undefined;
+  return { repository, on: env.UPDATE_WORKFLOW === 'found' };
 }
 
 /**

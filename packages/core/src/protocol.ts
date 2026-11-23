@@ -261,6 +261,15 @@ export interface HomeData {
   default?: string;
   /** Whether Claude has connected to this Quillipi at least once, for Home's Get started card. */
   claudeConnected: boolean;
+  /** A copy's weekly update check, for Get started's Turn on updates; missing where there is no copy's repository to add it to. */
+  updates?: Updates;
+}
+
+/** A copy's update check: its GitHub repository, and whether its last build found the workflow there. */
+export interface Updates {
+  /** "owner/name". */
+  repository: string;
+  on: boolean;
 }
 
 /** An app connected to Claude's door, for the Agents page. */

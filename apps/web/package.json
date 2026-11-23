@@ -1,6 +1,6 @@
 {
   "name": "@inklog/web",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",
-    "@inklog/core": "0.4.2",
+    "@inklog/core": "0.4.3",
     "@tiptap/core": "3.32.0",
     "@tiptap/extension-code": "3.32.0",
     "@tiptap/extension-highlight": "3.32.0",

@@ -1,7 +1,7 @@
 {
   "source": "quillipi/quillipi",
-  "version": "0.4.2",
-  "sha256": "3dcf7cd561a933de5c52dbe32c52ce53ebc4294fb041dbb526d9ad75c03d4939",
+  "version": "0.4.3",
+  "sha256": "fd8b0f3067628cffb73dda6f0a6edf02bc4c38b54fa3b2504f47f1c55ae24e1b",
   "storage": {
     "library": 1,
     "room": 1
