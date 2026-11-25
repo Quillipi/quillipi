@@ -1,6 +1,6 @@
 {
   "name": "inklog",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "Version-controlled docs that people and AI agents edit together.",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
@@ -11,8 +11,8 @@
     "dist"
   ],
   "dependencies": {
-    "@inklog/core": "0.4.3",
-    "@inklog/engine": "0.4.3",
+    "@inklog/core": "0.5.0",
+    "@inklog/engine": "0.5.0",
     "@modelcontextprotocol/sdk": "1.32.2",
     "chokidar": "5.0.0",
     "express": "5.3.0",

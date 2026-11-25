@@ -72,7 +72,8 @@ describe('the cloud front door', () => {
       token_endpoint: `${ORIGIN}/token`,
       registration_endpoint: `${ORIGIN}/register`,
       code_challenge_methods_supported: ['S256'],
-      scopes_supported: ['notebook'],
+      // offline_access is the authorization server's to grant, not a scope the door needs (sign-in.ts).
+      scopes_supported: ['notebook', 'offline_access'],
     });
   });
 
@@ -88,7 +89,7 @@ describe('the cloud front door', () => {
     expect(await (await get('/status', 'GET', broken)).json()).toMatchObject({ notebooks: 'failing: down' });
   });
 
-  it('has the hand-run tool route only under wrangler dev, going through the library as Claude does', async () => {
+  it('has the hand-run tool route only under wrangler dev, going through the library as the door does', async () => {
     const body = JSON.stringify({ tool: 'map' });
     expect((await get('/dev/tool', 'POST', env, body)).status).toBe(405);
     expect((await get('/dev/tool')).status).toBe(404);

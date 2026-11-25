@@ -5,14 +5,14 @@
  *
  * - A notebook's ID is made from its title when it is made, such as `gym-rollup`. It is also its
  *   room's name and its GitHub repo's name, and it never changes; the title can.
- * - Claude's door asks the library before touching any room, so a name the library doesn't know
+ * - The door asks the library before touching any room, so a name the library doesn't know
  *   creates nothing.
  * - Each room reports how it stands after a change (notebook-host.ts), so Home can draw every
  *   notebook from one request without waking them.
  * - It also keeps the owner's AI instructions for every notebook, with their earlier versions, and
  *   when each person last visited Home.
  * - And Quillipi's own settings (settings.ts), each under its name in the settings table, beside the
- *   default notebook, whether Claude has connected yet, and the storage version that wrote it.
+ *   default notebook, whether an AI app has connected yet, and the storage version that wrote it.
  * - And the first-time setups in progress (setup.ts), each for an hour after its last step.
  */
 import { MAX_INSTRUCTIONS, MAX_NOTEBOOK_TITLE, type LibraryMessage, type NotebookCard, type NotebookSummary, aboutLine, colourFor, isNotebookColour, isSectionId, notebookId, notebookTitle, slugify } from '@inklog/core';
@@ -40,8 +40,11 @@ export const SETUP_MS = 60 * 60_000;
  * library by starting setups; an owner whose setup went that way simply starts again.
  */
 export const SETUPS_KEPT = 20;
-/** The key in the settings table that says Claude has connected. */
-const CLAUDE_KEY = 'claude';
+/**
+ * The key in the settings table that says an AI app has connected. It was written for Claude, the
+ * only app before 0.5.0, and keeps its name so the library's storage stays as it is.
+ */
+const AI_CONNECTED_KEY = 'claude';
 /**
  * The shape of the library's storage that this code reads and writes: its tables and what they
  * hold. 1 is the shape it has kept since step 3.3, including before it was recorded. A release that
@@ -58,7 +61,7 @@ export interface Rooms {
 /** What Home is told when the library changes. */
 export type LibraryChange = Exclude<LibraryMessage, { type: 'cards' }>;
 
-/** What Claude's door needs: the notebooks, which one tools use when none is named, and the shared instructions. */
+/** What the door needs: the notebooks, and which one tools use when none is named. */
 export interface Directory {
   notebooks: { id: string; title: string }[];
   default?: string;
@@ -68,6 +71,24 @@ export interface Route {
   id: string;
   /** The owner's instructions for every notebook, if there are any. */
   shared?: string;
+  /** The notebooks, when asked for: map names them. */
+  directory?: Directory;
+}
+
+/** A new notebook: from the app's New notebook, or from a chat (`byAgent`), credited `by` the owner or the AI. */
+export interface NewNotebook {
+  title: string;
+  about?: string;
+  colour?: string;
+  by: string;
+  byAgent?: boolean;
+}
+
+/** A notebook added from its repo already on GitHub, by the owner or from a chat. */
+export interface AddedNotebook {
+  repo: string;
+  by: string;
+  byAgent?: boolean;
 }
 
 export interface LibraryOptions {
@@ -109,7 +130,7 @@ export class Library {
     return row ? (JSON.parse(String(row.card)) as NotebookCard) : undefined;
   }
 
-  /** The notebooks that aren't archived, for the instructions Claude reads when it connects. */
+  /** The notebooks that aren't archived, for the instructions an AI reads when it connects. */
   directory(): Directory {
     const notebooks = this.cards()
       .filter((card) => !card.archived)
@@ -120,9 +141,10 @@ export class Library {
 
   /**
    * The notebook a tool call is for: the one named, by its ID or by its title, or the default.
-   * An unknown name is answered with the list, and touches no room.
+   * An unknown name is answered with the list, and touches no room. `withDirectory` adds the
+   * notebooks, for map.
    */
-  route(name?: string): Route {
+  route(name?: string, withDirectory = false): Route {
     const shared = this.instructions();
     const id = name === undefined ? this.defaultId() : this.find(name);
     if (!id) {
@@ -130,7 +152,7 @@ export class Library {
       if (name === undefined) throw new UserError('There are no notebooks yet. Make one with create_notebook.');
       throw new UserError(`No notebook "${name}". ${known.length ? `The notebooks here are: ${known.join(', ')}.` : 'There are no notebooks yet. Make one with create_notebook.'}`);
     }
-    return { id, ...(shared ? { shared } : {}) };
+    return { id, ...(shared ? { shared } : {}), ...(withDirectory ? { directory: this.directory() } : {}) };
   }
 
   // New notebooks -------------------------------------------------------------------
@@ -138,9 +160,9 @@ export class Library {
   /**
    * Makes a notebook: picks its permanent ID from the title, writes its card, and starts its room
    * with an About section and a first commit. The ID is taken before the room is asked, so two
-   * New notebooks at the same moment never get the same one.
+   * New notebooks at the same moment never get the same one. `byAgent` says an AI asked, from a chat.
    */
-  async create({ title, about, colour, by }: { title: string; about?: string; colour?: string; by: string }): Promise<NotebookCard> {
+  async create({ title, about, colour, by, byAgent = false }: NewNotebook): Promise<NotebookCard> {
     const name = notebookTitle(title);
     if (!name) throw new UserError('A new notebook needs a title.');
     if (name.length > MAX_TITLE) throw new UserError(`A title can be at most ${MAX_TITLE} characters.`);
@@ -155,7 +177,7 @@ export class Library {
     for (let tries = 0; tries < ROOMS_TRIED; tries++) {
       const id = notebookId(name, (candidate) => occupied.has(candidate) || this.card(candidate) !== undefined);
       const now = this.now();
-      const card: NotebookCard = { id, title: name, ...(line ? { about: line } : {}), colour: colour ?? colourFor(id), createdBy: by, createdAt: now, from: 'new', archived: false, updatedAt: now };
+      const card: NotebookCard = { id, title: name, ...(line ? { about: line } : {}), colour: colour ?? colourFor(id), createdBy: by, byAgent, createdAt: now, from: 'new', archived: false, updatedAt: now };
       this.save(card);
       let made: 'made' | 'taken';
       try {
@@ -183,14 +205,14 @@ export class Library {
    * Adds a notebook whose repo is already in the organization for notebooks, such as one moved
    * there from the laptop. Its history is imported in the background, on its first use.
    */
-  async add({ repo, by }: { repo: string; by: string }): Promise<{ card: NotebookCard; status: string }> {
+  async add({ repo, by, byAgent = false }: AddedNotebook): Promise<{ card: NotebookCard; status: string }> {
     const id = repo.trim().replace(/^.*\//, '');
     if (!isSectionId(id)) {
       throw new UserError(`"${id}" can't be a notebook's ID: use a repo whose name has only lowercase letters, digits and hyphens (rename it on GitHub if needed), at most 60 characters.`);
     }
     if (this.card(id)) throw new UserError(`The notebook ${id} is already here.`);
     const now = this.now();
-    const card: NotebookCard = { id, title: id, colour: colourFor(id), createdBy: by, createdAt: now, from: 'github', archived: false, updatedAt: now };
+    const card: NotebookCard = { id, title: id, colour: colourFor(id), createdBy: by, byAgent, createdAt: now, from: 'github', archived: false, updatedAt: now };
     this.save(card);
     let status: string;
     try {
@@ -305,9 +327,9 @@ export class Library {
     });
   }
 
-  /** Whether Claude has connected at least once, for Home's Get started card. */
-  claudeConnected(): boolean {
-    return this.sql.exec('SELECT value FROM settings WHERE key = ?', CLAUDE_KEY).toArray().length > 0;
+  /** Whether an AI app has connected at least once, for Home's Get started card. */
+  aiConnected(): boolean {
+    return this.sql.exec('SELECT value FROM settings WHERE key = ?', AI_CONNECTED_KEY).toArray().length > 0;
   }
 
   /** Whether a stranger may start one more sign-in step (sign-in-limits.ts); if so, it is counted. */
@@ -315,11 +337,11 @@ export class Library {
     return this.signIns.admit(visitor);
   }
 
-  /** Notes that Claude has connected; the first time, every open Home is told. */
-  noteClaudeConnected(): void {
-    if (this.claudeConnected()) return;
-    this.sql.exec('INSERT INTO settings (key, value) VALUES (?, ?)', CLAUDE_KEY, String(this.now()));
-    this.options.onChange?.({ type: 'claude' });
+  /** Notes that an AI app has connected; the first time, every open Home is told. */
+  noteAiConnected(): void {
+    if (this.aiConnected()) return;
+    this.sql.exec('INSERT INTO settings (key, value) VALUES (?, ?)', AI_CONNECTED_KEY, String(this.now()));
+    this.options.onChange?.({ type: 'ai' });
   }
 
   private putSetting(name: SettingName, value: string): void {

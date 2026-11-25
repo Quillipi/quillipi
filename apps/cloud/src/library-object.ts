@@ -1,6 +1,6 @@
 /**
  * The library's Durable Object: one in the whole cloud, holding a card for every notebook
- * (library.ts). Claude's door asks it which notebook a call is for, New notebook asks it to make
+ * (library.ts). The door asks it which notebook a call is for, New notebook asks it to make
  * one, and every room tells it how it stands after a change.
  *
  * Home keeps a live connection to it (the app opens it at /api/library/ws, after browser sign-in):
@@ -14,7 +14,7 @@ import type { NotebookCard, NotebookSummary } from '@inklog/core';
 import { DurableObject } from 'cloudflare:workers';
 import { durableSql } from './durable-store.js';
 import type { Env } from './env.js';
-import { type Directory, Library, type LibraryChange, type Route } from './library.js';
+import { type AddedNotebook, type Directory, Library, type LibraryChange, type NewNotebook, type Route } from './library.js';
 import type { SettingView, Settings } from './settings.js';
 import type { SetupRecord } from './setup.js';
 import type { Admission } from './sign-in-limits.js';
@@ -26,15 +26,15 @@ export class LibraryObject extends DurableObject<Env> {
     return this.open().directory();
   }
 
-  route(name?: string): Route {
-    return this.open().route(name);
+  route(name?: string, withDirectory = false): Route {
+    return this.open().route(name, withDirectory);
   }
 
-  create(details: { title: string; about?: string; colour?: string; by: string }): Promise<NotebookCard> {
+  create(details: NewNotebook): Promise<NotebookCard> {
     return this.open().create(details);
   }
 
-  add(details: { repo: string; by: string }): Promise<{ card: NotebookCard; status: string }> {
+  add(details: AddedNotebook): Promise<{ card: NotebookCard; status: string }> {
     return this.open().add(details);
   }
 
@@ -85,12 +85,12 @@ export class LibraryObject extends DurableObject<Env> {
     return this.open().settingsView(this.env);
   }
 
-  claudeConnected(): boolean {
-    return this.open().claudeConnected();
+  aiConnected(): boolean {
+    return this.open().aiConnected();
   }
 
-  noteClaudeConnected(): void {
-    this.open().noteClaudeConnected();
+  noteAiConnected(): void {
+    this.open().noteAiConnected();
   }
 
   /** The first-time setups in progress (setup.ts). Only the Worker reaches these; it checks the browser's cookie first. */

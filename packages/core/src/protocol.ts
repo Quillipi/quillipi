@@ -231,6 +231,11 @@ export interface NotebookCard {
   colour: string;
   /** Who made or added it: the owner's name, or an agent such as "Claude via claude.ai". */
   createdBy: string;
+  /**
+   * Whether an AI made or added it, from a chat. Cards from before 0.5.0 don't say; for them,
+   * `createdBy` is the owner's name when the owner did (madeByAgent in apps/web/src/news.ts).
+   */
+  byAgent?: boolean;
   createdAt: number;
   /** Made here, or added from a repo already on GitHub. */
   from: 'new' | 'github';
@@ -259,8 +264,8 @@ export interface HomeData {
   lastVisit?: number;
   /** The notebook tools use when they name none. */
   default?: string;
-  /** Whether Claude has connected to this Quillipi at least once, for Home's Get started card. */
-  claudeConnected: boolean;
+  /** Whether an AI app has connected to this Quillipi at least once, for Home's Get started card. */
+  aiConnected: boolean;
   /** A copy's weekly update check, for Get started's Turn on updates; missing where there is no copy's repository to add it to. */
   updates?: Updates;
 }
@@ -272,7 +277,7 @@ export interface Updates {
   on: boolean;
 }
 
-/** An app connected to Claude's door, for the Agents page. */
+/** An AI app connected to Quillipi's door, for the Agents page. */
 export interface AgentConnection {
   id: string;
   /** How its work is credited, such as "Claude via claude.ai". */
@@ -282,6 +287,6 @@ export interface AgentConnection {
 
 /**
  * What the library tells Home's live connection: every card when it connects, then each change,
- * and `claude` the first time Claude connects.
+ * and `ai` the first time an AI app connects.
  */
-export type LibraryMessage = { type: 'cards'; cards: NotebookCard[] } | { type: 'card'; card: NotebookCard } | { type: 'removed'; id: string } | { type: 'claude' };
+export type LibraryMessage = { type: 'cards'; cards: NotebookCard[] } | { type: 'card'; card: NotebookCard } | { type: 'removed'; id: string } | { type: 'ai' };

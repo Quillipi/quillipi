@@ -192,8 +192,8 @@ interface ShelfState {
   /** Home's "since your last visit": the visit before this time the app was opened. */
   lastVisit?: number;
   default?: string;
-  /** Whether Claude has connected at least once: Home's Get started card asks until it has. */
-  claudeConnected: boolean;
+  /** Whether an AI app has connected at least once: Home's Get started card asks until one has. */
+  aiConnected: boolean;
   /** A copy's update check, for Get started's Turn on updates; missing where there is no step. */
   updates?: Updates;
   /** The New notebook dialog, opened from the rail, Home, the switcher and the New tile. */
@@ -202,7 +202,7 @@ interface ShelfState {
   setCards(cards: NotebookCard[]): void;
   putCard(card: NotebookCard): void;
   removeCard(id: string): void;
-  setClaudeConnected(): void;
+  setAiConnected(): void;
   setUpdates(updates: Updates | undefined): void;
   setCreating(creating: boolean): void;
 }
@@ -211,13 +211,13 @@ export const useShelf = create<ShelfState>()((set) => ({
   cards: [],
   loaded: false,
   homeLoaded: false,
-  claudeConnected: false,
+  aiConnected: false,
   creating: false,
-  setHome: ({ me, cards, lastVisit, default: fallback, claudeConnected, updates }) => set({ me, cards: sortCards(cards), loaded: true, homeLoaded: true, lastVisit, default: fallback, claudeConnected, updates }),
+  setHome: ({ me, cards, lastVisit, default: fallback, aiConnected, updates }) => set({ me, cards: sortCards(cards), loaded: true, homeLoaded: true, lastVisit, default: fallback, aiConnected, updates }),
   setCards: (cards) => set({ cards: sortCards(cards), loaded: true }),
   putCard: (card) => set((state) => ({ cards: sortCards([card, ...state.cards.filter((other) => other.id !== card.id)]) })),
   removeCard: (id) => set((state) => ({ cards: state.cards.filter((card) => card.id !== id) })),
-  setClaudeConnected: () => set({ claudeConnected: true }),
+  setAiConnected: () => set({ aiConnected: true }),
   setUpdates: (updates) => set({ updates }),
   setCreating: (creating) => set({ creating }),
 }));

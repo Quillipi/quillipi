@@ -13,7 +13,7 @@ import type { Env } from './env.js';
 export const SESSION_COOKIE = '__Host-inklog';
 /** A sign-in on its way through GitHub: its state and PKCE verifier, bound to this browser. */
 export const SIGN_IN_COOKIE = '__Host-inklog-signin';
-/** How long a browser stays signed in without being used, as Claude's connection does. */
+/** How long a browser stays signed in without being used, as an AI app's connection does. */
 export const SESSION_DAYS = 90;
 /** A session older than this gets a fresh cookie when it is used, so the 90 days count from the last use. */
 const RENEW_AFTER_MS = 24 * 60 * 60 * 1000;

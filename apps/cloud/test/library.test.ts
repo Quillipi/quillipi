@@ -39,14 +39,14 @@ describe('making notebooks', () => {
     const room = rooms();
     const changes: LibraryChange[] = [];
     const lib = library({ rooms: room.stub, changes });
-    const card = await lib.create({ title: '  Gym   rollup ', about: 'Take over struggling gyms\nand standardise them', by: 'Claude via claude.ai' });
-    expect(card).toMatchObject({ id: 'gym-rollup', title: 'Gym rollup', about: 'Take over struggling gyms and standardise them', createdBy: 'Claude via claude.ai', from: 'new', archived: false });
+    const card = await lib.create({ title: '  Gym   rollup ', about: 'Take over struggling gyms\nand standardise them', by: 'Claude via claude.ai', byAgent: true });
+    expect(card).toMatchObject({ id: 'gym-rollup', title: 'Gym rollup', about: 'Take over struggling gyms and standardise them', createdBy: 'Claude via claude.ai', byAgent: true, from: 'new', archived: false });
     expect(NOTEBOOK_COLOURS).toContain(card.colour);
     expect(room.made).toEqual([['gym-rollup', { title: 'Gym rollup', about: 'Take over struggling gyms and standardise them', colour: card.colour }]]);
     expect(changes).toEqual([{ type: 'card', card }]);
     // The same title again gets the next free ID; a chosen colour is kept.
     expect((await lib.create({ title: 'Gym Rollup!', colour: '#0f8b8d', by: 'The Octocat' })).id).toBe('gym-rollup-2');
-    expect(lib.card('gym-rollup-2')!.colour).toBe('#0f8b8d');
+    expect(lib.card('gym-rollup-2')).toMatchObject({ colour: '#0f8b8d', createdBy: 'The Octocat', byAgent: false });
     expect((await lib.create({ title: '日本', by: 'The Octocat' })).id).toBe('notebook');
     expect((await lib.create({ title: 'x'.repeat(100), by: 'The Octocat' })).id).toBe('x'.repeat(60));
     expect((await lib.create({ title: 'x'.repeat(100), by: 'The Octocat' })).id).toBe(`${'x'.repeat(58)}-2`);
@@ -98,8 +98,8 @@ describe('adding a notebook from GitHub', () => {
   it("takes the repo's name as the ID, accepts owner/name, and asks the room to begin the import", async () => {
     const adopted: string[] = [];
     const lib = library({ rooms: rooms({ adopt: async (id) => (adopted.push(id), `octo-notebooks/${id}: importing, listing commits, 0 found so far.`) }).stub });
-    const { card, status } = await lib.add({ repo: 'octo-notebooks/inklog', by: 'Claude via claude.ai' });
-    expect(card).toMatchObject({ id: 'inklog', title: 'inklog', from: 'github', createdBy: 'Claude via claude.ai' });
+    const { card, status } = await lib.add({ repo: 'octo-notebooks/inklog', by: 'Claude via claude.ai', byAgent: true });
+    expect(card).toMatchObject({ id: 'inklog', title: 'inklog', from: 'github', createdBy: 'Claude via claude.ai', byAgent: true });
     expect(status).toBe('octo-notebooks/inklog: importing, listing commits, 0 found so far.');
     expect(adopted).toEqual(['inklog']);
     await expect(lib.add({ repo: 'inklog', by: 'k' })).rejects.toThrow('The notebook inklog is already here.');
@@ -121,6 +121,8 @@ describe('finding notebooks', () => {
     await lib.create({ title: 'First', by: 'k' });
     await lib.create({ title: 'Gym rollup', by: 'k' });
     expect(lib.route()).toEqual({ id: 'first' });
+    // map names the notebooks, so a route for it carries them.
+    expect(lib.route('first', true)).toEqual({ id: 'first', directory: { notebooks: [{ id: 'gym-rollup', title: 'Gym rollup' }, { id: 'first', title: 'First' }], default: 'first' } });
     expect(lib.route('gym-rollup').id).toBe('gym-rollup');
     expect(lib.route('Gym Rollup').id).toBe('gym-rollup');
     expect(lib.route(' GYM-ROLLUP ').id).toBe('gym-rollup');
@@ -133,7 +135,7 @@ describe('finding notebooks', () => {
     expect(() => lib.setDefault('nope')).toThrow('No notebook "nope".');
   });
 
-  it("leaves archived notebooks out of Claude's list, while their names still work", async () => {
+  it("leaves archived notebooks out of the AIs' list, while their names still work", async () => {
     const lib = library();
     await lib.create({ title: 'Old idea', by: 'k' });
     await lib.create({ title: 'New idea', by: 'k' });
@@ -188,17 +190,24 @@ it('remembers when each person last opened Home', () => {
   expect(lib.visit('The Octocat')).toBe(1_800_000_000_000 + DAY);
 });
 
-describe('Claude’s first connection', () => {
+describe('the first AI app’s connection', () => {
   it('is noted once, and every open Home is told the first time', () => {
     const changes: LibraryChange[] = [];
     const shelf = library({ changes });
-    expect(shelf.claudeConnected()).toBe(false);
-    shelf.noteClaudeConnected();
-    shelf.noteClaudeConnected();
-    expect(shelf.claudeConnected()).toBe(true);
-    expect(changes).toEqual([{ type: 'claude' }]);
+    expect(shelf.aiConnected()).toBe(false);
+    shelf.noteAiConnected();
+    shelf.noteAiConnected();
+    expect(shelf.aiConnected()).toBe(true);
+    expect(changes).toEqual([{ type: 'ai' }]);
     // It is no setting: nothing outside the library sees it as one.
     expect(shelf.settings()).toEqual({});
+  });
+
+  it('is still known from the note Claude’s connection left before 0.5.0, under the same key', () => {
+    const sql = nodeSql();
+    sql.exec('CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    sql.exec("INSERT INTO settings (key, value) VALUES ('claude', '1800000000000')");
+    expect(new Library(sql, { rooms: rooms().stub }).aiConnected()).toBe(true);
   });
 });
 

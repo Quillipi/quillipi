@@ -91,6 +91,8 @@ export interface MapInput {
   held: number;
   /** What changed since this agent last visited, already summarised per section. */
   sinceVisit: readonly string[];
+  /** The host's notebooks, already written as one list, where a host keeps several (the cloud). */
+  notebooks?: string;
   now: number;
 }
 
@@ -108,6 +110,7 @@ export function renderMap(input: MapInput): string {
 
   const counts = [`${sections.length} sections`, ...(folders ? [`${folders} folder${folders === 1 ? '' : 's'}`] : []), `${blockCount} blocks`];
   const lines = [`${input.name} · ${counts.join(' · ')} · ~${formatCount(tokens)} tokens`, status.join(' · ')];
+  if (input.notebooks) lines.push(`notebooks: ${input.notebooks}`);
   if (input.sinceVisit.length) lines.push(`since your last visit: ${input.sinceVisit.join(' · ')}`);
 
   for (const entry of input.entries) {

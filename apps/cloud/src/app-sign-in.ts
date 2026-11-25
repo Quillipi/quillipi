@@ -1,5 +1,5 @@
 /**
- * Signing the browser in to the app, through the same GitHub App as Claude's sign-in, at its
+ * Signing the browser in to the app, through the same GitHub App as an AI app's sign-in, at its
  * second callback address, /signin/callback:
  *
  * 1. GET /signin shows one card: Continue with GitHub.
@@ -9,7 +9,7 @@
  *    token, used once to ask who signed in and then dropped. Only GITHUB_USER_ID is let in, and
  *    the browser gets its session cookie (session.ts).
  *
- * POST /signout removes the cookie. Unlike Claude's sign-in there is no consent page: the person
+ * POST /signout removes the cookie. Unlike an AI app's sign-in there is no consent page: the person
  * is signing in their own browser, and GitHub checks who they are.
  */
 import type { Served } from './env.js';

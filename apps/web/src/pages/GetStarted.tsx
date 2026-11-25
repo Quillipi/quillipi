@@ -1,8 +1,8 @@
 /**
  * Home's Get started card, for a new Quillipi: in a copy, turn on updates; then connect Claude and
  * make the first notebook. Each step ticks itself (the copy's build finds the update workflow;
- * Claude's first connection is noted by the cloud and comes in live; a notebook is any card that
- * isn't archived), and the card goes once every step is done. The steps are drawn like the setup's,
+ * the first AI app's connection, Claude's or any other's, is noted by the cloud and comes in live;
+ * a notebook is any card that isn't archived), and the card goes once every step is done. The steps are drawn like the setup's,
  * so the newcomer carries on the same way.
  */
 import type { Updates } from '@inklog/core';
@@ -34,9 +34,9 @@ export function GetStarted({ progress, updates, alone }: { progress: Progress; u
   }
   steps.push(
     {
-      key: 'claude',
+      key: 'ai',
       title: 'Connect Claude',
-      done: progress.claude,
+      done: progress.ai,
       summary: 'Claude is connected. It reads and writes your notebooks from any chat.',
       body: (
         <>

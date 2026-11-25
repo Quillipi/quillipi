@@ -21,7 +21,7 @@ import type { Env } from './env.js';
 import { GitHubApp } from './github.js';
 import { LIBRARY_NAME } from './library.js';
 import { Mirror } from './mirror.js';
-import { type NewNotebookDetails, NotebookHost, type NotebookStatus } from './notebook-host.js';
+import { type NewNotebookDetails, NotebookHost, type NotebookStatus, type RoomContext } from './notebook-host.js';
 import { withSettings } from './settings.js';
 
 /** The object remembers which notebook it holds, so its alarm knows. */
@@ -32,9 +32,9 @@ export class NotebookObject extends DurableObject<Env> {
   private opened?: Promise<{ store: DurableStore; env: Env }>;
   private hosted?: Promise<NotebookHost>;
 
-  /** Runs an agent's tool call on the notebook, with the owner's instructions for every notebook. */
-  async runTool(notebook: string, agent: string, tool: string, args: unknown, sharedInstructions?: string): Promise<string> {
-    return (await this.hostFor(notebook)).runTool(agent, tool, args, sharedInstructions);
+  /** Runs an agent's tool call on the notebook, with what the library adds: the owner's instructions for every notebook, and the notebooks for map. */
+  async runTool(notebook: string, agent: string, tool: string, args: unknown, context: RoomContext = {}): Promise<string> {
+    return (await this.hostFor(notebook)).runTool(agent, tool, args, context);
   }
 
   /** Starts a new notebook in this room; the library calls it from New notebook. */

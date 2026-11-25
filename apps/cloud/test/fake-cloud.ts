@@ -9,7 +9,7 @@ import { answerEditor } from '../src/editor-door.js';
 import { GitHubApp } from '../src/github.js';
 import { Library } from '../src/library.js';
 import { Mirror } from '../src/mirror.js';
-import { type NewNotebookDetails, NotebookHost } from '../src/notebook-host.js';
+import { type NewNotebookDetails, NotebookHost, type RoomContext } from '../src/notebook-host.js';
 import type { Settings } from '../src/settings.js';
 import type { FakeGitHub } from './fake-github.js';
 import { nodeSql } from './node-sql.js';
@@ -37,8 +37,10 @@ export interface FakeCloudOptions {
 export class FakeCloud {
   readonly library: Library;
   readonly rooms = new Map<string, Room>();
-  /** Tool calls that reached a room: notebook, agent, tool, arguments, shared instructions. */
+  /** Tool calls that reached a room: notebook, agent, tool, arguments, and the shared instructions when there are some. */
   readonly calls: unknown[][] = [];
+  /** What the library added to each call that reached a room, in the same order. */
+  readonly contexts: RoomContext[] = [];
   readonly reports: { id: string; summary: NotebookSummary }[] = [];
   /** How many times the Worker asked the library for the settings it doesn't hold. */
   settingsAsked = 0;
@@ -120,16 +122,16 @@ export class FakeCloud {
 
   private stub(id: string) {
     return {
-      runTool: async (notebook: string, agent: string, tool: string, args: unknown, shared?: string) => {
-        this.calls.push([notebook, agent, tool, args, ...(shared ? [shared] : [])]);
-        return this.options.answer ? this.options.answer(notebook, agent, tool, args) : this.room(notebook).host.runTool(agent, tool, args, shared);
+      runTool: async (notebook: string, agent: string, tool: string, args: unknown, context: RoomContext = {}) => {
+        this.calls.push([notebook, agent, tool, args, ...(context.shared ? [context.shared] : [])]);
+        this.contexts.push(context);
+        return this.options.answer ? this.options.answer(notebook, agent, tool, args) : this.room(notebook).host.runTool(agent, tool, args, context);
       },
       create: (notebook: string, details: NewNotebookDetails) => this.room(notebook).host.create(details),
       adopt: (notebook: string) => this.room(notebook).host.adopt(),
       status: (notebook: string) => this.room(notebook).host.status(),
       retryMirror: async (notebook: string) => this.room(notebook).host.mirror?.retry() ?? 'No mirror.',
-      admitSignIn: async (visitor: string) => library.admitSignIn(visitor),
-    ping: async () => 'ok',
+      ping: async () => 'ok',
       /** The editor's calls, as the room's Durable Object answers them (editor-door.ts). */
       fetch: (request: Request) => answerEditor(this.room(id).host, request, async () => this.library.instructions()),
     };
@@ -140,7 +142,7 @@ export class FakeCloud {
 function libraryStub(library: Library) {
   return {
     directory: async () => library.directory(),
-    route: async (name?: string) => library.route(name),
+    route: async (name?: string, withDirectory?: boolean) => library.route(name, withDirectory),
     create: (details: Parameters<Library['create']>[0]) => library.create(details),
     add: (details: Parameters<Library['add']>[0]) => library.add(details),
     cards: async () => library.cards(),
@@ -150,8 +152,8 @@ function libraryStub(library: Library) {
     setDefault: async (id: string) => library.setDefault(id),
     instructions: async () => library.instructions(),
     setInstructions: async (text: string) => library.setInstructions(text),
-    claudeConnected: async () => library.claudeConnected(),
-    noteClaudeConnected: async () => library.noteClaudeConnected(),
+    aiConnected: async () => library.aiConnected(),
+    noteAiConnected: async () => library.noteAiConnected(),
     startSetup: async (record: Parameters<Library['startSetup']>[0]) => library.startSetup(record),
     setup: async (id: string) => library.setup(id),
     saveSetup: async (id: string, record: Parameters<Library['saveSetup']>[1]) => library.saveSetup(id, record),

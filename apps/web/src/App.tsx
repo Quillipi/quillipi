@@ -38,7 +38,7 @@ export function App() {
         if (message.type === 'cards') shelf.setCards(message.cards);
         else if (message.type === 'card') shelf.putCard(message.card);
         else if (message.type === 'removed') shelf.removeCard(message.id);
-        else shelf.setClaudeConnected();
+        else if (message.type === 'ai') shelf.setAiConnected();
       });
     }, setError);
     return () => library?.close();

@@ -205,7 +205,7 @@ describe('a fresh Quillipi', () => {
     });
     expect(await (await site.fetch('/status')).json()).toMatchObject({ setup: 'done', github: 'ready', signIn: 'ready', app: 'ready' });
     expect(await (await browser.open('/api/me')).json()).toEqual({ login: 'OctoCat', name: 'The Octocat', github: ORG });
-    expect(await (await browser.open('/api/home')).json()).toMatchObject({ cards: [], claudeConnected: false });
+    expect(await (await browser.open('/api/home')).json()).toMatchObject({ cards: [], aiConnected: false });
     // The setup is over, for everyone.
     expect((await browser.open('/setup')).headers.get('location')).toBe('/');
     expect((await site.fetch('/setup/organization', { method: 'POST', headers: { origin: ORIGIN } })).headers.get('location')).toBe('/');

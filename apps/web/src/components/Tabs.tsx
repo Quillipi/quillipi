@@ -244,6 +244,11 @@ export function TabBar() {
 
 const BAR_BUTTON = 'grid size-8 place-items-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-black/[0.05] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-black/[0.05]';
 
+/** The app in a credited name, for the bar: "Claude via Claude Code" is Claude Code; "ChatGPT" stays ChatGPT. */
+function appOf(agent: string): string {
+  return agent.replace(/^.+? via /, '');
+}
+
 /** Who is working here, and whether the page is saved. */
 function Status() {
   const route = useRoute();
@@ -260,7 +265,7 @@ function Status() {
                 <Face key={agent} name={agent} agent size={22} className="ring-agent-soft" />
               ))}
             </span>
-            <span className="max-lg:hidden">{agents.length === 1 ? agents[0]!.replace(/^Claude via /, '') : `${agents.length} AIs`} here</span>
+            <span className="max-lg:hidden">{agents.length === 1 ? appOf(agents[0]!) : `${agents.length} AIs`} here</span>
             <span className="sr-only">{agents.join(', ')} working here</span>
           </span>
         </Tooltip>

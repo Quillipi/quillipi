@@ -19,7 +19,7 @@ import { editorExtensions } from '../editor/schema';
 import { follow } from '../frame/Rail';
 import { cn } from '../lib/cn';
 import { useLive } from '../live-context';
-import { plural } from '../news';
+import { madeByAgent, plural } from '../news';
 import { href } from '../router';
 import { useApp, useShelf } from '../store';
 import { Button, ButtonLink, buttonStyles } from '../ui/Button';
@@ -140,7 +140,7 @@ export function Overview({ folder }: { folder: string }) {
                 {first && (
                   <span>
                     since {new Date(first.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} by{' '}
-                    {card?.createdBy && card.createdBy !== info.person.name ? <Who name={card.createdBy} agent={card.createdBy.includes('Claude')} /> : 'you'}
+                    {card?.createdBy && card.createdBy !== info.person.name ? <Who name={card.createdBy} agent={madeByAgent(card, info.person.name)} /> : 'you'}
                   </span>
                 )}
                 {card?.archived && <Pill>Archived</Pill>}

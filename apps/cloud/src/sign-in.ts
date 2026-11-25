@@ -1,7 +1,7 @@
 /**
- * Sign-in for Claude's door, letting in one person. workers-oauth-provider is the authorization
- * server that apps talk to (discovery, registration, tokens); this module is its /authorize page
- * and GitHub's callback:
+ * Sign-in for the door, letting in one person, from any AI app. workers-oauth-provider is the
+ * authorization server that apps talk to (discovery, registration, tokens); this module is its
+ * /authorize page and GitHub's callback:
  *
  * 1. GET /authorize shows which app asks and where access will be sent, with Continue and Cancel.
  * 2. POST /authorize: on Continue, the browser goes to GitHub, with PKCE.
@@ -22,6 +22,21 @@ import { isSetUp } from './settings.js';
 
 /** The one scope, the use of the notebooks: sign-in grants it and /mcp asks for it. */
 export const SCOPE = 'notebook';
+/**
+ * The right to renew a sign-in, which some apps ask for and are granted. Every app gets a refresh
+ * token anyway, but ChatGPT, as OpenAI says, may lose access after an hour without this scope.
+ */
+export const OFFLINE = 'offline_access';
+
+/**
+ * The grant and response types Quillipi's sign-in uses, as workers-oauth-provider supports them.
+ * Version 1.2.4 refuses a registration that lists any other, such as the device code Gemini CLI
+ * lists; RFC 7591 lets a server leave those out instead, as 1.3.0 does (supportedRegistration).
+ */
+const GRANT_TYPES = ['authorization_code', 'refresh_token'];
+const RESPONSE_TYPES = ['code'];
+/** Registrations are a few hundred bytes; a larger one goes to the library untouched, which limits it. */
+const REGISTRATION_READ = 64 * 1024;
 
 const NEEDED = ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'GITHUB_USER_ID', 'GITHUB_USER_LOGIN'] as const;
 
@@ -83,12 +98,13 @@ export function callback(request: Request, env: Served): Promise<Response> {
     }
     const agent = agentName(await oauth.describeConsent(original));
     const props: DoorProps = { agent };
+    const scope = original.scope.includes(OFFLINE) ? [SCOPE, OFFLINE] : [SCOPE];
     // The app's name is kept in the grant's readable metadata too, so the Agents page can list it.
-    const { redirectTo } = await oauth.completeAuthorization({ request: original, userId: String(user.id), metadata: { login: user.login, agent }, scope: [SCOPE], props });
-    // For Home's Get started card. Claude is connected either way, so a failure here only waits for the next connection.
+    const { redirectTo } = await oauth.completeAuthorization({ request: original, userId: String(user.id), metadata: { login: user.login, agent }, scope, props });
+    // For Home's Get started card. The app is connected either way, so a failure here only waits for the next connection.
     await library(env)
-      .noteClaudeConnected()
-      .catch((error: unknown) => console.error('Could not note that Claude connected:', error));
+      .noteAiConnected()
+      .catch((error: unknown) => console.error('Could not note that an AI app connected:', error));
     headers.set('location', redirectTo);
     return new Response(null, { status: 302, headers });
   });
@@ -130,7 +146,7 @@ async function decide(request: Request, env: Served, github: GitHubSignIn): Prom
 
 /**
  * Trades GitHub's code for a GitHub token and asks GitHub whose it is. The token isn't kept.
- * `redirectUri` is the callback the sign-in went out with: Claude's, or the app's.
+ * `redirectUri` is the callback the sign-in went out with: the door's, the app's or the setup's.
  */
 export async function whoSignedIn(
   env: Env,
@@ -202,14 +218,77 @@ async function guarded(work: () => Promise<Response>): Promise<Response> {
   }
 }
 
-/** How commits and the activity list name an app's work, as on the laptop. The name is the app's own, so it is tidied. */
-function agentName({ clientName, redirectIsLoopback }: ConsentDescription): string {
-  const name = clientName.replace(/\s+/g, ' ').trim().slice(0, 60) || 'An app';
-  if (!/claude/i.test(name)) return name;
-  return redirectIsLoopback ? 'Claude via Claude Code' : 'Claude via claude.ai';
+/**
+ * How commits and the activity list name an app's work. An app with a published identity is named
+ * by the site that publishes it, which it can't fake: chatgpt.com publishes ChatGPT's and Codex's,
+ * vscode.dev VS Code's. Any other app is named by the name it gave itself, tidied; Claude's names
+ * say where it runs, as on the laptop.
+ */
+function agentName({ clientId, clientName, clientDomain, redirectIsLoopback }: ConsentDescription): string {
+  const site = clientDomain?.toLowerCase();
+  if (site === 'chatgpt.com') return new URL(clientId).pathname.includes('/codex/') ? 'Codex' : 'ChatGPT';
+  if (site === 'vscode.dev') return 'VS Code';
+  // An app that gave no name is called by its client ID, which says nothing to a person.
+  const name = clientName === clientId ? '' : clientName.replace(/\s+/g, ' ').trim().slice(0, 60);
+  if (site === 'claude.ai' || /claude/i.test(name)) return redirectIsLoopback ? 'Claude via Claude Code' : 'Claude via claude.ai';
+  return name || site || 'An app';
 }
 
-/** The library's reasons are short phrases, some ending in "; start again", which the page says anyway. */
+/**
+ * An app's registration (POST /register) without the grant and response types Quillipi doesn't
+ * use, so an app that lists extra ones, such as Gemini CLI with the device code, can still sign
+ * in. A list with none Quillipi uses is left as it is, for the library to refuse with its reason.
+ * Anything that isn't a small JSON object goes on untouched.
+ */
+export async function supportedRegistration(request: Request): Promise<Request> {
+  if (Number(request.headers.get('content-length') ?? 0) > REGISTRATION_READ) return request;
+  // Read from a copy, so the request goes on whole if it is too large or isn't what was expected.
+  const text = await readUpTo(request.clone(), REGISTRATION_READ);
+  if (text === undefined) return request;
+  let metadata: unknown;
+  try {
+    metadata = JSON.parse(text);
+  } catch {
+    return request;
+  }
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return request;
+  const fields = metadata as Record<string, unknown>;
+  const left: string[] = [];
+  const keep = (name: string, supported: string[]) => {
+    const listed = fields[name];
+    if (!Array.isArray(listed) || !listed.some((value) => supported.includes(value))) return;
+    left.push(...listed.filter((value) => !supported.includes(value)).map(String));
+    fields[name] = listed.filter((value) => supported.includes(value));
+  };
+  keep('grant_types', GRANT_TYPES);
+  keep('response_types', RESPONSE_TYPES);
+  if (!left.length) return request;
+  console.log(`Registration of ${JSON.stringify(String(fields.client_name ?? 'an app'))}: left out ${left.join(', ')}, which Quillipi doesn't use.`);
+  const headers = new Headers(request.headers);
+  headers.delete('content-length');
+  return new Request(request, { headers, body: JSON.stringify(fields) });
+}
+
+/** A request's body as text, or undefined once it runs past `limit` bytes, when the rest isn't read. */
+async function readUpTo(request: Request, limit: number): Promise<string | undefined> {
+  const reader = request.body?.getReader();
+  if (!reader) return '';
+  const decoder = new TextDecoder();
+  let text = '';
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return text + decoder.decode();
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      return undefined;
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+}
+
+/** workers-oauth-provider's reasons are short phrases, some ending in "; start again", which the page says anyway. */
 function sentence(reason: string): string {
   const text = reason.replace(/;\s*start again$/i, '').replace(/\.?$/, '.');
   return text.charAt(0).toUpperCase() + text.slice(1);

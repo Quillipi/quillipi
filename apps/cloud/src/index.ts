@@ -1,11 +1,12 @@
 /**
  * Quillipi in the cloud: the always-on home of the notebooks, on Cloudflare.
  *
- * Claude connects at /mcp (door.ts) after signing in with GitHub (sign-in.ts). In front of both
- * is workers-oauth-provider: it answers discovery, registers apps, issues tokens and checks the
- * token on every request to /mcp. Each notebook is a Durable Object that runs the engine on its
- * own SQLite database (notebook-object.ts) and mirrors its history to the GitHub repo of the same
- * name (mirror.ts). /status is public, and the /dev/ routes exist only under `wrangler dev`.
+ * AI apps (Claude, ChatGPT, Codex, Cursor and any other that speaks MCP) connect at /mcp (door.ts)
+ * after signing in with GitHub (sign-in.ts). In front of both is workers-oauth-provider: it answers
+ * discovery, registers apps, issues tokens and checks the token on every request to /mcp. Each
+ * notebook is a Durable Object that runs the engine on its own SQLite database (notebook-object.ts)
+ * and mirrors its history to the GitHub repo of the same name (mirror.ts). /status is public, and
+ * the /dev/ routes exist only under `wrangler dev`.
  *
  * The app itself (apps/web's built files) is served by Cloudflare as static assets, before this
  * Worker runs; wrangler.jsonc lists the routes that come here first. A browser signs in at /signin
@@ -32,7 +33,7 @@ import { readSession, sessionStatus } from './session.js';
 import { isSetUp, withSettings } from './settings.js';
 import { setup } from './setup.js';
 import { type Admission, visitorOf } from './sign-in-limits.js';
-import { SCOPE, authorize, callback, signInStatus } from './sign-in.js';
+import { OFFLINE, SCOPE, authorize, callback, signInStatus, supportedRegistration } from './sign-in.js';
 
 export { LibraryObject } from './library-object.js';
 export { NotebookObject } from './notebook-object.js';
@@ -61,7 +62,8 @@ export default {
     if (signIn?.origin !== origin) signIn = { origin, provider: signInFor(origin) };
     const refused = await limitSignIn(request, env);
     if (refused) return refused;
-    return signIn.provider.fetch(request, env, ctx);
+    const registering = request.method === 'POST' && new URL(request.url).pathname === '/register';
+    return signIn.provider.fetch(registering ? await supportedRegistration(request) : request, env, ctx);
   },
 } satisfies ExportedHandler<Env>;
 
@@ -119,9 +121,13 @@ function signInFor(origin: string): OAuthProvider<Served> {
     tokenEndpoint: '/token',
     clientRegistrationEndpoint: '/register',
     // Apps may also sign in with their published identity (a Client ID Metadata Document), as
-    // Claude can; it needs the global_fetch_strictly_public flag in wrangler.jsonc.
+    // Claude, ChatGPT, Codex and VS Code can; it needs the global_fetch_strictly_public flag in
+    // wrangler.jsonc.
     clientIdMetadataDocumentEnabled: true,
-    scopesSupported: [SCOPE],
+    // An app on the computer may be called back by its own scheme, as Cursor was before July 2026
+    // (cursor://…), besides http on this computer and https; the consent page warns of both.
+    allowPrivateUseRedirectUris: true,
+    scopesSupported: [SCOPE, OFFLINE],
     requiredScopes: [SCOPE],
     resourceMetadata: { resource: `${origin}/mcp`, authorization_servers: [origin], resource_name: 'Quillipi' },
     refreshTokenTTL: REFRESH_TOKEN_LIFETIME,
@@ -205,7 +211,7 @@ async function githubHealth(env: Env): Promise<string> {
 
 /**
  * Routes for trying the cloud by hand under `wrangler dev`, without signing in:
- * POST /dev/tool runs a tool as Claude's door would, create_notebook included; GET /dev/status?notebook=
+ * POST /dev/tool runs a tool as the door would, create_notebook included; GET /dev/status?notebook=
  * shows a notebook and its mirror; POST /dev/mirror {"action": "retry"} lets a stopped or waiting
  * mirror carry on; GET /dev/library shows every card.
  */

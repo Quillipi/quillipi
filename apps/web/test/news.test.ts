@@ -1,7 +1,7 @@
 /** The bell's "since your last visit", Home's backup meter, the notebooks' order and the Get started card (news.ts), which need no browser. */
 import type { BackupState, NotebookCard, NotebookSummary, RepoInfo } from '@inklog/core';
 import { describe, expect, it } from 'vitest';
-import { backupDetail, backups, getStarted, homeNews, notebookNews, sortNotebooks } from '../src/news';
+import { backupDetail, backups, getStarted, homeNews, madeByAgent, notebookNews, sortNotebooks } from '../src/news';
 
 const HOUR = 60 * 60 * 1000;
 const NOW = Date.UTC(2026, 10, 15, 12);
@@ -135,18 +135,31 @@ describe("Home's notebooks", () => {
 });
 
 describe("Home's Get started card", () => {
-  it('ticks Claude and a notebook that isn’t archived, and goes once both are done', () => {
-    expect(getStarted([], false)).toEqual({ claude: false, notebook: false, done: 0, total: 2, show: true });
-    expect(getStarted([card('gym', {}, { archived: true })], true)).toEqual({ claude: true, notebook: false, done: 1, total: 2, show: true });
-    expect(getStarted([card('gym')], false)).toEqual({ claude: false, notebook: true, done: 1, total: 2, show: true });
-    expect(getStarted([card('gym'), card('plan', {}, { archived: true })], true)).toEqual({ claude: true, notebook: true, done: 2, total: 2, show: false });
+  it('ticks an AI app and a notebook that isn’t archived, and goes once both are done', () => {
+    expect(getStarted([], false)).toEqual({ ai: false, notebook: false, done: 0, total: 2, show: true });
+    expect(getStarted([card('gym', {}, { archived: true })], true)).toEqual({ ai: true, notebook: false, done: 1, total: 2, show: true });
+    expect(getStarted([card('gym')], false)).toEqual({ ai: false, notebook: true, done: 1, total: 2, show: true });
+    expect(getStarted([card('gym'), card('plan', {}, { archived: true })], true)).toEqual({ ai: true, notebook: true, done: 2, total: 2, show: false });
   });
 
   it("has Turn on updates first in a copy, and comes back for it in a copy that was set up before it existed", () => {
     const off = { repository: 'Ki-met/quillipi', on: false };
-    expect(getStarted([], false, off)).toEqual({ updates: false, claude: false, notebook: false, done: 0, total: 3, show: true });
+    expect(getStarted([], false, off)).toEqual({ updates: false, ai: false, notebook: false, done: 0, total: 3, show: true });
     // Like the copy from the newcomer test: Claude and a notebook done, the workflow never added.
-    expect(getStarted([card('kimet-plan')], true, off)).toEqual({ updates: false, claude: true, notebook: true, done: 2, total: 3, show: true });
+    expect(getStarted([card('kimet-plan')], true, off)).toEqual({ updates: false, ai: true, notebook: true, done: 2, total: 3, show: true });
     expect(getStarted([card('kimet-plan')], true, { ...off, on: true })).toMatchObject({ updates: true, done: 3, total: 3, show: false });
+  });
+});
+
+describe('who made a notebook', () => {
+  it('is any AI the card says made it, and for a card from before 0.5.0 anyone but the owner', () => {
+    expect(madeByAgent(card('gym', {}, { createdBy: 'ChatGPT', byAgent: true }), 'Karan')).toBe(true);
+    expect(madeByAgent(card('gym', {}, { createdBy: 'Karan', byAgent: false }), 'Karan')).toBe(false);
+    // Older cards don't say, so their name decides: Codex is no Claude, but it is an AI.
+    expect(madeByAgent(card('gym', {}, { createdBy: 'Codex' }), 'Karan')).toBe(true);
+    expect(madeByAgent(card('gym', {}, { createdBy: 'Claude via claude.ai' }), 'Karan')).toBe(true);
+    expect(madeByAgent(card('gym'), 'Karan')).toBe(false);
+    // Before Home knows who you are, an older card isn't marked.
+    expect(madeByAgent(card('gym', {}, { createdBy: 'Codex' }), undefined)).toBe(false);
   });
 });

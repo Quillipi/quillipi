@@ -4,6 +4,34 @@ What is new in each version of Quillipi, called InkLog until 0.4.0. Each version
 release notes on GitHub, and a Quillipi made with the Deploy to Cloudflare button shows them in
 the issue that says it is ready.
 
+## 0.5.0 (2026-11-25)
+
+**Any AI app can connect, not only Claude**: ChatGPT (on chatgpt.com, and in the ChatGPT desktop
+app's Work and Codex), Codex in a terminal or an editor, Cursor, VS Code with GitHub Copilot,
+Gemini CLI, Le Chat and others that speak MCP. They use the same address, `<your Quillipi>/mcp`,
+and sign in with your GitHub, as Claude does. Steps for each app come in a later release, once each
+has been tried; Claude works as before.
+
+- **Sign-in for every app.** An app that comes back by an app link, such as `cursor://…`, can sign
+  in, and the consent page says that access goes to an app on this computer. An app that asks for
+  `offline_access`, as ChatGPT may, is granted it, so it stays signed in. A registration that lists
+  sign-in types Quillipi doesn't use, such as the device code Gemini CLI lists, has them left out
+  instead of being refused.
+- **Work is credited to each app by name**: ChatGPT, Codex, VS Code, Cursor and others, as Claude's
+  is. Home and a notebook's page mark a notebook that any AI made, not only Claude. The laptop
+  program credits Codex, Cursor, VS Code and Gemini CLI by name too.
+- **Tools that every model takes.** No tool's schema is a union any more (JSON Schema's `oneOf` and
+  `anyOf`), which some models and platforms refuse: `patch`'s ops are one flat shape, 1.6 KB
+  smaller, so every step of every chat costs about 400 fewer tokens, Claude's included, and `read`
+  takes a list of sections. What AIs sent before still works. Every tool has a title, and hints
+  that say it only reads, or that its changes can be undone, for apps that ask before a tool writes.
+- **What an app reads first.** The instructions' first paragraph says everything that matters in
+  512 characters, since ChatGPT and Codex weigh only those, and names your notebooks, the default
+  first. `map` names them too, so an app learns of a notebook made after it connected.
+- **Apps that accept only JSON** are answered instead of refused with 406. Each connection leaves
+  one line in Cloudflare's logs: how the app is credited, its name and version, and its version of
+  MCP. Apps that show a server's icon show Quillipi's.
+
 ## 0.4.3 (2026-11-23)
 
 Fixes from the first newcomer test, which went from no accounts to a first notebook in 23 minutes.

@@ -9,6 +9,7 @@
 import type { Actor, BackupState, NotebookSummary, PendingChange, Person, RecentEdit, SectionMark, ServerMessage, TreeItem } from '@inklog/core';
 import { EditorApi, type EditorCall, type EditorReply, Engine, LAYOUT, UserError, initNotebook, runTool } from '@inklog/engine';
 import type { DurableStore } from './durable-store.js';
+import type { Directory } from './library.js';
 import type { Mirror } from './mirror.js';
 
 export interface NotebookStatus {
@@ -18,6 +19,12 @@ export interface NotebookStatus {
   uncommitted?: number;
   /** How the GitHub mirror stands, when it is set up. */
   mirror?: string;
+}
+
+/** What the library adds to a tool call (library.ts, route): the owner's instructions for every notebook, and for map the notebooks there are. */
+export interface RoomContext {
+  shared?: string;
+  directory?: Directory;
 }
 
 /** What New notebook gives a room to start with. */
@@ -100,12 +107,13 @@ export class NotebookHost {
    * Runs an agent's tool call. Everything it changed is saved before the reply goes back, and any
    * new commit is then pushed to GitHub. With a mirror, the first call imports the notebook.
    */
-  async runTool(agent: string, tool: string, args: unknown, sharedInstructions?: string): Promise<string> {
+  async runTool(agent: string, tool: string, args: unknown, { shared, directory }: RoomContext = {}): Promise<string> {
     await this.mirror?.ready();
     const engine = await this.open();
+    const notebooks = directory && { ids: directory.notebooks.map((notebook) => notebook.id), fallback: directory.default, here: this.name };
     try {
-      // map shows how the mirror stands when it needs a person.
-      return await runTool(engine, agent, tool, args, { sharedInstructions, notice: tool === 'map' ? this.mirror?.notice() : undefined });
+      // map shows how the mirror stands when it needs a person, and names the notebooks.
+      return await runTool(engine, agent, tool, args, { sharedInstructions: shared, notice: tool === 'map' ? this.mirror?.notice() : undefined, notebooks });
     } finally {
       await this.settle();
     }

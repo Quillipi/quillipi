@@ -1,8 +1,8 @@
 /**
- * The pages a person sees outside the app: the first-time setup, the app's sign-in, Claude's
- * consent page and short messages. They run no scripts and can't be shown inside another site.
- * They wear the app's look (its desk, white paper, violet accent and drop of ink), so the first
- * page a newcomer sees is already Quillipi.
+ * The pages a person sees outside the app: the first-time setup, the app's sign-in, the consent
+ * page an AI app's sign-in shows, and short messages. They run no scripts and can't be shown
+ * inside another site. They wear the app's look (its desk, white paper, violet accent and drop of
+ * ink), so the first page a newcomer sees is already Quillipi.
  */
 import type { ConsentDescription } from '@cloudflare/workers-oauth-provider';
 
@@ -11,7 +11,7 @@ import type { ConsentDescription } from '@cloudflare/workers-oauth-provider';
  * GitHub or back to the app that asked, so `formTargets` lists those addresses.
  */
 export function pageHeaders(headers = new Headers(), formTargets: string[] = []): Headers {
-  const formAction = ["'self'", ...formTargets.map((target) => new URL(target).origin)].join(' ');
+  const formAction = ["'self'", ...formTargets.map(formSource)].join(' ');
   headers.set('content-type', 'text/html; charset=utf-8');
   headers.set('cache-control', 'no-store');
   headers.set('content-security-policy', `default-src 'none'; style-src 'unsafe-inline'; form-action ${formAction}; frame-ancestors 'none'; base-uri 'none'`);
@@ -22,19 +22,39 @@ export function pageHeaders(headers = new Headers(), formTargets: string[] = [])
   return headers;
 }
 
+/**
+ * How a page names an address in `form-action`: by its origin, or, for an app link such as
+ * cursor://…, whose origin is "null" and would match nothing, by its scheme.
+ */
+function formSource(target: string): string {
+  const url = new URL(target);
+  return isAppLink(url) ? url.protocol : url.origin;
+}
+
+/** An address that opens an app on this computer by its own scheme (RFC 8252's private-use URI), such as cursor://…. */
+function isAppLink(url: URL): boolean {
+  return url.protocol !== 'https:' && url.protocol !== 'http:';
+}
+
 /** Asks whether this app may use the notebooks. Everything about the app comes from the app, so it is escaped. */
 export function consentPage(app: ConsentDescription, handle: string, owner: string): string {
   const name = escapeHtml(app.clientName);
   const origin = app.clientDomain
     ? `It is published by <strong>${escapeHtml(app.clientDomain)}</strong>.`
     : 'The app gave this name itself, so Quillipi can’t check it.';
-  const local = app.redirectIsLoopback
-    ? '<p class="warning">Access goes to an app on this computer, such as Claude Code. Continue only if you just started connecting from it.</p>'
-    : '';
+  const redirect = new URL(app.redirectUri);
+  const appLink = isAppLink(redirect);
+  // An app link's host names no website, so it is shown with its scheme, such as cursor://anysphere.cursor-mcp.
+  const target = appLink && redirect.host ? `${redirect.protocol}//${redirect.host}` : app.redirectHost;
+  // Any program on the computer could be listening there, whatever name the app gave.
+  const local =
+    app.redirectIsLoopback || appLink
+      ? '<p class="warning">Access goes to an app on this computer, such as Claude Code, Codex or Cursor. Continue only if you just started connecting from it.</p>'
+      : '';
   return page(
     `Connect ${name} to Quillipi`,
     `<p><strong>${name}</strong> wants to read and edit your Quillipi notebooks and commit its changes. Large deletions will still wait for your review.</p>
-    <p>${origin} Access will be sent to <strong>${escapeHtml(app.redirectHost)}</strong>.</p>
+    <p>${origin} Access will be sent to <strong>${escapeHtml(target)}</strong>.</p>
     ${local}
     <form method="post" action="/authorize">
       <input type="hidden" name="handle" value="${escapeHtml(handle)}">

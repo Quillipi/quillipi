@@ -2,11 +2,11 @@
  * The app's calls under /api, for a browser signed in with its session cookie (session.ts):
  *
  * - Home and the library: GET /api/home (everything Home draws, in one request, with whether
- *   Claude has connected yet and whether a copy's updates are on), GET /api/updates (only the
+ *   an AI app has connected yet and whether a copy's updates are on), GET /api/updates (only the
  *   latter, which Get started asks while it waits for Cloudflare to deploy the owner's commit), POST
  *   /api/notebooks (New notebook), archiving, the default notebook, and /api/library/ws, Home's
  *   live connection to the library.
- * - Agents: the apps connected to Claude's door, disconnecting one, and the owner's AI instructions
+ * - Agents: the AI apps connected to the door, disconnecting one, and the owner's AI instructions
  *   for every notebook (GET and POST /api/instructions), which no agent tool can change.
  * - Quillipi's settings, as the owner may see them (GET /api/settings): where each comes from, and
  *   no secret's value.
@@ -63,9 +63,9 @@ async function route(request: Request, url: URL, env: Env, { user, login }: Sess
     case 'GET /api/home': {
       const shelf = library(env);
       // Opening Home is a visit; its answer says when the one before was, for "since your last visit".
-      const [cards, lastVisit, directory, claudeConnected] = await Promise.all([shelf.cards(), shelf.visit(login), shelf.directory(), connected(env, user)]);
+      const [cards, lastVisit, directory, aiConnected] = await Promise.all([shelf.cards(), shelf.visit(login), shelf.directory(), connected(env, user)]);
       const turnOn = updates(env);
-      return json({ me, cards, ...(lastVisit ? { lastVisit } : {}), ...(directory.default ? { default: directory.default } : {}), claudeConnected, ...(turnOn ? { updates: turnOn } : {}) } satisfies HomeData);
+      return json({ me, cards, ...(lastVisit ? { lastVisit } : {}), ...(directory.default ? { default: directory.default } : {}), aiConnected, ...(turnOn ? { updates: turnOn } : {}) } satisfies HomeData);
     }
     // Not a visit, so asking it again and again leaves "since your last visit" alone.
     case 'GET /api/updates': {
@@ -147,21 +147,21 @@ export function updates(env: Env): Updates | undefined {
 }
 
 /**
- * Whether Claude has connected at least once, for Home's Get started card. Sign-in notes it in the
- * library (sign-in.ts); a Quillipi whose Claude connected before that note existed is found once by
- * its grants, then noted, so Workers KV's daily list requests are spent only until Claude connects.
+ * Whether an AI app has connected at least once, for Home's Get started card. Sign-in notes it in
+ * the library (sign-in.ts); a Quillipi whose Claude connected before that note existed is found once
+ * by its grants, then noted, so Workers KV's daily list requests are spent only until an app connects.
  */
 async function connected(env: Env, user: string): Promise<boolean> {
   const shelf = library(env);
-  if (await shelf.claudeConnected()) return true;
+  if (await shelf.aiConnected()) return true;
   const { items } = await env.OAUTH_PROVIDER.listUserGrants(user, { limit: 1 });
   if (!items.length) return false;
-  await shelf.noteClaudeConnected();
+  await shelf.noteAiConnected();
   return true;
 }
 
 /**
- * The apps connected to Claude's door, newest first. Their names were kept with each grant since
+ * The AI apps connected to the door, newest first. Their names were kept with each grant since
  * step 3.4a; for an older grant the app's record names it, or the site its published identity is on.
  */
 async function connections(env: Env, user: string): Promise<AgentConnection[]> {

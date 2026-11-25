@@ -323,7 +323,7 @@ function show(ctx: Context, owner: string, found: { record: SetupRecord } | unde
 
 /**
  * What Quillipi's GitHub App is, as GitHub's manifest flow takes it: private, with no webhook, the
- * permissions the mirror needs, the three sign-in returns (Claude's, the browser's and the setup's),
+ * permissions the mirror needs, the three sign-in returns (the AI apps', the browser's and the setup's),
  * and where GitHub returns after it is made and after it is installed.
  */
 export function manifest(origin: string, organization: string) {

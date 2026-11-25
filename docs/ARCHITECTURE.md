@@ -82,9 +82,10 @@ apps/web          The app and the editor: React and TipTap, served by apps/inklo
 apps/cloud        Quillipi in the cloud, on Cloudflare: always on, in its owner's own account
   src/index.ts           the Worker: workers-oauth-provider in front, /status, and the /dev/
                          routes under `wrangler dev` only
-  src/door.ts            Claude's door, /mcp: the tools for every notebook, and create_notebook,
-                         behind sign-in
-  src/sign-in.ts         sign-in with GitHub, letting in one account: consent, GitHub, callback
+  src/door.ts            the door, /mcp, for every AI app: the tools for every notebook, and
+                         create_notebook, behind sign-in
+  src/sign-in.ts         sign-in with GitHub, letting in one account: consent, GitHub, callback,
+                         how each app is credited, and registrations tidied
   src/pages.ts           the consent page and the sign-in messages
   src/sign-in-limits.ts  how many sign-in steps strangers may start, per visitor and per day
   src/library.ts         the library: a card for every notebook, permanent IDs, New notebook,
@@ -332,7 +333,7 @@ per notebook name: the notebook's single owner, as one engine per folder is on t
 store is SQLite inside the object. The store is tested in Node on `node:sqlite` with the same
 contract tests (Cloudflare's own test runner doesn't support vitest 5 yet), and the Worker is
 tried under `wrangler dev` with `--var DEV_ROUTES:on --var PUBLIC_URL:http://localhost:8787`,
-which turns on `POST /dev/tool` (any tool, `create_notebook` included, as Claude's door runs
+which turns on `POST /dev/tool` (any tool, `create_notebook` included, as the door runs
 it), `GET /dev/status`, `POST /dev/mirror` (`{"action": "retry"}`) and `GET /dev/library`.
 
 **The library** (`library.ts`, step 3.3) is one more Durable Object, with a card for every
@@ -343,11 +344,12 @@ name and its repo's name, so it never changes; the title, its line about what it
 colour live in the notebook's own `inklog.json` and travel with its history. The ID is taken
 before the room is asked, so two New notebooks at once never get the same one, and a room that
 already holds a notebook the library doesn't list is skipped. At most 20 notebooks are made a
-day, so a runaway agent can't fill the organization with repos. Claude's door asks the library
+day, so a runaway agent can't fill the organization with repos. The door asks the library
 which notebook a call is for (by ID, by title, or the default: the one chosen, else the one made
 first), so an unknown name creates nothing and is answered with the list; the same call brings
 the owner's instructions for every notebook, which the library keeps with their earlier
-versions. Each room reports how it stands after a change (`NotebookSummary` in core's
+versions, and, for `map`, the notebooks there are (`route(name, withDirectory)`). A card says
+whether an AI made it from a chat (`byAgent`, since 0.5.0). Each room reports how it stands after a change (`NotebookSummary` in core's
 `protocol.ts`: counts, the latest commit, the four sections edited most recently, agents'
 commits, the backup), at most every 2 seconds, from its alarm when it has to wait, so Home can
 draw every notebook from one request without waking them; open Homes get each changed card over
@@ -428,8 +430,28 @@ and each tool's description are the agent's manual (`packages/engine/src/agent.t
   tools let an agent do a task in few calls: `map` can read sections too, `read` takes several
   sections, and `patch` edits several sections and can commit in the same call. Tool
   definitions ride along in every step as well, so they stay small: patch has one list of ops,
-  and an op names its own section when it isn't the call's; organize's ops share one flat shape,
-  because a union of four shapes repeats each field's description (313 tokens instead of 548).
+  and an op names its own section when it isn't the call's.
+- **No tool schema has a union** (JSON Schema's `oneOf`, `anyOf` or `allOf`), since 0.5.0, so every
+  model and platform takes them (some refuse unions, and Codex shrinks a schema past 5,000 bytes).
+  patch's ops and organize's each share one flat shape, and `patchOps` and `organizeOps` check
+  that each op has what its kind needs (`Op 3 (replace) needs base.`); a union also repeats each
+  field's description (patch went from 3.7 KB to 2.0 KB, organize from 548 tokens to 313).
+  `read`'s `path` is a list. What apps sent before still works: `path` as one string, and an
+  inserted canvas's shapes under `canvas: {add, link}` (`z.preprocess` turns them into the new
+  shape, and the published schema shows only the new one).
+- **Every tool has a title and hints** (`mcp.ts`), for apps that ask the person before a tool
+  writes: the six readers are read-only; the writers aren't destructive, since every change is
+  uncommitted work or a commit that can be undone and large deletions wait for the person; and no
+  tool reaches beyond the notebooks.
+- **The server's instructions** (`instructions()` in `agent.ts`) start with a paragraph that stands
+  alone within 512 characters, because ChatGPT and Codex weigh only those: what Quillipi is, the
+  notebooks with the default first (in the cloud; as many as fit, then how many more), map first,
+  editing by @hash and committing, and that document text is content. The details follow. In the
+  cloud `map` names the notebooks too, so an app that kept the instructions from when it connected
+  learns of a notebook made since.
+- Over stdio an app is credited by the name it gives when it connects: a few are known
+  (`claude-code` is Claude via Claude Code, `codex-mcp-client` Codex), and any other by its title,
+  else its name.
 - Every call is logged in `.inklog/calls/`; `inklog calls` sums the log up.
 - Everything an agent reads is generated from the files by code, so it can't drift.
 - After a patch, the reply lists blocks in other sections that mention the same key terms, so
@@ -474,10 +496,12 @@ the door, on 127.0.0.1:4330; a tunnel (Cloudflare Tunnel) forwards the public ad
   sign-in is not reported, so the report has no false alarms.
 - The public address is remembered per notebook in `.inklog/remote.json`.
 
-## Claude's door in the cloud
+## The door in the cloud, for every AI app
 
-The Worker in `apps/cloud` is the always-on way in: Claude adds `<PUBLIC_URL>/mcp` once as a
-connector and signs in with GitHub, and the laptop can be off.
+The Worker in `apps/cloud` is the always-on way in: an AI app (Claude, ChatGPT, Codex, Cursor, VS
+Code, Gemini CLI or any other that speaks MCP) adds `<PUBLIC_URL>/mcp` once and signs in with
+GitHub, and the laptop can be off. Every app connects with MCP and signs in with OAuth under MCP's
+rules; they differ in small ways, each handled once in the door, for every app (0.5.0).
 
 - **workers-oauth-provider is the authorization server.** It answers discovery (RFC 9728 and
   RFC 8414), registers apps (dynamic registration at `/register`, or an app's published identity,
@@ -513,19 +537,41 @@ connector and signs in with GitHub, and the laptop can be off.
   every plan, with nothing for a newcomer to set up; Cloudflare's rate-limiting binding counts per
   location, and its docs don't say it is on the Free plan.
 - **Tokens:** access tokens last an hour; refresh tokens rotate on every use, and a grant ends
-  after 90 days without use, as on the laptop.
+  after 90 days without use, as on the laptop. Every app gets a refresh token; one that asks for
+  `offline_access`, as ChatGPT may, is granted it too, and the authorization server's metadata
+  lists it beside `notebook` (the door itself needs only `notebook`).
+- **Where sign-in returns**: to a website (https), to this computer (http on `localhost` or
+  `127.0.0.0/8`, on any port), or to an app link such as `cursor://…` (RFC 8252's private-use
+  URIs, `allowPrivateUseRedirectUris`). The consent page warns that access goes to an app on this
+  computer for the last two, since any program there could be listening, and its
+  `form-action` names an app link by its scheme (`cursor:`), since its origin is `null`.
+- **How an app introduces itself**: by its published identity (a Client ID Metadata Document at an
+  https address: Claude, ChatGPT, Codex, VS Code), or by registering. A registration that lists
+  grant or response types Quillipi doesn't use (Gemini CLI lists the device code) has them left
+  out before workers-oauth-provider reads it (`supportedRegistration`), as RFC 7591 allows: 1.2.4
+  refuses them, 1.3.0 drops them itself. A registration that lists none Quillipi uses is refused
+  with the library's reason.
+- **Who did it**: an app with a published identity is credited by the site that publishes it
+  (`chatgpt.com` gives ChatGPT, or Codex for Codex's document; `vscode.dev` gives VS Code;
+  `claude.ai` stays Claude via claude.ai, or Claude via Claude Code when access goes to this
+  computer); any other app by the name it gave itself (`agentName` in `sign-in.ts`). The door logs
+  one line per connection: the credited name, the app's name, version and title as it introduced
+  itself, and its version of MCP.
+- **What apps send**: the door answers only in plain JSON, so a request whose `Accept` doesn't
+  also offer `text/event-stream`, which the MCP SDK refuses with 406, is let in. The server
+  introduces itself with its title, its website and each copy's own icon (`/icons/icon-192.png`).
 - **`/mcp` is stateless** (`door.ts`): a fresh MCP server per request on the SDK's web-standard
   transport, with plain JSON replies. It skips Ajv, which the SDK would otherwise build for every
   server, because Quillipi never asks questions through the agent and a free-plan request may use
   only 10 ms of CPU; a tool call through the whole door takes about 1 ms in Node.
 - **One door, every notebook.** Every tool takes an optional `notebook`; the library says which
-  room that is, and the server's instructions, sent when Claude connects, list the notebooks
-  with their titles. An unknown name is refused before any room is touched. A tool call goes to
-  its notebook's Durable Object over RPC, credited to "Claude via claude.ai", or "Claude via
-  Claude Code" when access goes to an app on this computer. The door has one tool of its own,
-  `create_notebook` (`{title, about}`, or `{github}` to add a repo already in the organization),
-  about 180 tokens of definition; its reply carries the new notebook's map and About section, so
-  Claude can write at once.
+  room that is, and the server's instructions, sent when an app connects, list the notebooks: their
+  IDs in the first paragraph and their titles at the end. An unknown name is refused before any
+  room is touched. A tool call goes to its notebook's Durable Object over RPC, credited as above,
+  with what the library adds (`RoomContext`: the owner's instructions for every notebook, and for
+  `map` the notebooks). The door has one tool of its own, `create_notebook` (`{title, about}`, or
+  `{github}` to add a repo already in the organization), about 180 tokens of definition; its reply
+  carries the new notebook's map and About section, so the AI can write at once.
 - `/status` says whether sign-in has its settings (`"signIn": "ready"`) without calling GitHub.
   Every failed sign-in is logged in plain words, so Cloudflare's logs show why.
 - Trying it locally: `npx wrangler dev --var PUBLIC_URL:http://localhost:8787`, since only
@@ -557,7 +603,7 @@ on any device.
   and every live connection, must also carry Quillipi's own `Origin`. `GET /api/home` gives Home
   everything in one request (who is signed in, every card, the visit before this one, the
   default notebook). New notebook, archiving, the default and Add from GitHub go to the
-  library; the Agents page lists the apps connected to Claude's door with the provider's
+  library; the Agents page lists the apps connected to the door with the provider's
   `listUserGrants` and disconnects one with `revokeGrant`. Each grant keeps the app's name in
   its readable metadata from step 3.4a; older ones are named from the app's record.
 - **A notebook's calls go to its room**, only when the library has a card for it, so an unknown
@@ -724,11 +770,12 @@ then the first notebook. Each ticks itself, and the card goes once all are done 
   `GET /api/updates` every 10 seconds for 15 minutes (not `GET /api/home`, which counts as a visit).
   If GitHub doesn't find the page (a renamed repository), the step says how to add the file by
   hand, with its name and text to copy.
-- **Connect Claude**: `GET /api/home` says `claudeConnected`, which Claude's sign-in notes in the
-  library the first time (`noteClaudeConnected`, also sent live to Home as `{ type: 'claude' }`); a
-  Quillipi whose Claude connected before the note existed is found once by its grants
-  (`listUserGrants`), then noted, so Workers KV's daily list requests are spent only until Claude
-  connects.
+- **Connect Claude** (any AI app ticks it): `GET /api/home` says `aiConnected`, which an app's
+  sign-in notes in the library the first time (`noteAiConnected`, also sent live to Home as
+  `{ type: 'ai' }`, under the settings key `claude` it had before 0.5.0, so the library's storage
+  is unchanged); a Quillipi whose Claude connected before the note existed is found once by its
+  grants (`listUserGrants`), then noted, so Workers KV's daily list requests are spent only until
+  an app connects.
 - **The first notebook**: any card that isn't archived.
 
 ## Releases, copies and updates
@@ -922,13 +969,18 @@ are remembered per notebook in local storage.
   OAuth client.
 - `apps/cloud/test`: the cloud's store against the same contract on `node:sqlite`, the Worker's
   routes, sign-in and `/mcp` end to end (the MCP SDK's own OAuth client, a browser that keeps
-  cookies, GitHub's side of sign-in with PKCE checked, and KV in memory), including the attacks
-  the consent page stops, the library and one-click notebooks end to end (`library.test.ts`,
+  cookies, GitHub's side of sign-in with PKCE checked, and KV in memory, in `apps.ts`), including
+  the attacks the consent page stops, every kind of AI app signing in as its maker documents it
+  (`any-ai.test.ts`: published identities and registrations, callbacks on websites, on this
+  computer and by app links, extra grant types, `offline_access`, JSON-only apps, credited names), the library and one-click notebooks end to end (`library.test.ts`,
   `new-notebooks.test.ts`, with the real library and rooms on `node:sqlite` in `fake-cloud.ts`),
   and the GitHub mirror against a stand-in GitHub (`fake-github.ts`, with an organization that
   makes repos with a starter commit) that checks the
   App's JWT signature, limits tokens to one repo, and hashes blobs and commits in its own code
   with messages kept byte for byte, so a wrong message or date shows up as a different ID.
+- `packages/engine/test/tools.test.ts`: the tools as every app sees them: schemas without unions
+  and under 5,000 bytes, titles and hints, patch's flat ops and the shapes from before, map's
+  notebooks, and the instructions' first 512 characters.
 - `packages/engine/test/instructions.test.ts` and `undo.test.ts`: AI instructions (when agents get
   them, across a restart, shared ones first, that no tool can change them, committing them) and
   undo this commit (later edits kept, sections made and deleted, moves, the order, instructions),

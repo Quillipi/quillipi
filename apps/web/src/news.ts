@@ -139,7 +139,8 @@ export function plural(count: number, word: string): string {
 export interface GetStarted {
   /** Missing where there is no Turn on updates step. */
   updates?: boolean;
-  claude: boolean;
+  /** An AI app has connected. */
+  ai: boolean;
   /** A notebook that isn't archived. */
   notebook: boolean;
   done: number;
@@ -147,9 +148,17 @@ export interface GetStarted {
   show: boolean;
 }
 
-export function getStarted(cards: NotebookCard[], claudeConnected: boolean, updates?: Updates): GetStarted {
+export function getStarted(cards: NotebookCard[], aiConnected: boolean, updates?: Updates): GetStarted {
   const notebook = cards.some((card) => !card.archived);
-  const steps = [...(updates ? [updates.on] : []), claudeConnected, notebook];
+  const steps = [...(updates ? [updates.on] : []), aiConnected, notebook];
   const done = steps.filter(Boolean).length;
-  return { ...(updates ? { updates: updates.on } : {}), claude: claudeConnected, notebook, done, total: steps.length, show: done < steps.length };
+  return { ...(updates ? { updates: updates.on } : {}), ai: aiConnected, notebook, done, total: steps.length, show: done < steps.length };
+}
+
+/**
+ * Whether an AI made or added a notebook, from a chat. Cards say so since 0.5.0; an older card was
+ * made by an AI when it names anyone but the owner, since the app credits the owner by name.
+ */
+export function madeByAgent(card: NotebookCard, owner: string | undefined): boolean {
+  return card.byAgent ?? (owner !== undefined && card.createdBy !== owner);
 }
